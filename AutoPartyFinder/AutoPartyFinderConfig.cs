@@ -58,13 +58,6 @@ public class AutoPartyFinderConfig : IPluginConfiguration
         ImGui.Separator();
         ImGui.Spacing();
 
-        // Recovery Controls Section
-        DrawRecoveryControls();
-
-        ImGui.Spacing();
-        ImGui.Separator();
-        ImGui.Spacing();
-
         // Party Status Section
         DrawPartyStatus();
 
@@ -246,56 +239,6 @@ public class AutoPartyFinderConfig : IPluginConfiguration
             {
                 ImGui.TextColored(new Vector4(0, 1, 0, 1), "✓ Party size stable");
             }
-        }
-
-        ImGui.Spacing();
-    }
-
-    private void DrawRecoveryControls()
-    {
-        ImGui.TextColored(new Vector4(1, 0.5f, 1, 1), "Recovery Controls:");
-        ImGui.Separator();
-
-        // Recovery Step Delay Configuration
-        ImGui.Text("Recovery Step Delay (ms):");
-        int delayMs = _plugin!.RecoveryStepDelayMs;
-        if (ImGui.InputInt("##RecoveryStepDelay", ref delayMs, 100, 500))
-        {
-            // Clamp between 100ms and 10000ms
-            delayMs = Math.Max(100, Math.Min(10000, delayMs));
-            _plugin.RecoveryStepDelayMs = delayMs;
-            Save();
-        }
-        if (ImGui.IsItemHovered())
-        {
-            ImGui.SetTooltip("Delay between each step in the recovery sequence (100-10000ms)");
-        }
-
-        ImGui.Text($"Current delay: {_plugin.RecoveryStepDelayMs}ms");
-
-        ImGui.Spacing();
-
-        // Manual Recovery Button
-        ImGui.PushStyleColor(ImGuiCol.Button, new Vector4(0.5f, 0.2f, 0.8f, 1));
-        ImGui.PushStyleColor(ImGuiCol.ButtonHovered, new Vector4(0.6f, 0.3f, 0.9f, 1));
-        ImGui.PushStyleColor(ImGuiCol.ButtonActive, new Vector4(0.4f, 0.1f, 0.7f, 1));
-
-        if (ImGui.Button("Execute Party Decrease Recovery", new Vector2(400, 35)))
-        {
-            _plugin.ManualExecutePartyDecreaseRecovery();
-        }
-
-        ImGui.PopStyleColor(3);
-
-        if (ImGui.IsItemHovered())
-        {
-            ImGui.SetTooltip("Manually trigger the party decrease recovery sequence\nThis will:\n" +
-                            "1. Disable OpenAddon\n" +
-                            "2. Open recruitment window\n" +
-                            "3. Re-enable OpenAddon\n" +
-                            "4. Restore job masks\n" +
-                            "5. Leave duty\n" +
-                            "6. Start recruiting");
         }
 
         ImGui.Spacing();
@@ -553,6 +496,56 @@ public class AutoPartyFinderConfig : IPluginConfiguration
         if (ImGui.IsItemHovered())
         {
             ImGui.SetTooltip("Get the content ID of the player with 'Looking for Party' status");
+        }
+
+        ImGui.Spacing();
+        ImGui.Separator();
+        ImGui.Spacing();
+
+        // Recovery Controls
+        ImGui.TextColored(new Vector4(1, 0.5f, 1, 1), "Recovery Controls:");
+        ImGui.Separator();
+
+        // Recovery Step Delay Configuration
+        ImGui.Text("Recovery Step Delay (ms):");
+        int delayMs = _plugin!.RecoveryStepDelayMs;
+        if (ImGui.InputInt("##RecoveryStepDelay", ref delayMs, 100, 500))
+        {
+            // Clamp between 100ms and 10000ms
+            delayMs = Math.Max(100, Math.Min(10000, delayMs));
+            _plugin.RecoveryStepDelayMs = delayMs;
+            Save();
+        }
+        if (ImGui.IsItemHovered())
+        {
+            ImGui.SetTooltip("Delay between each step in the recovery sequence (100-10000ms)");
+        }
+
+        ImGui.Text($"Current delay: {_plugin.RecoveryStepDelayMs}ms");
+
+        ImGui.Spacing();
+
+        // Manual Recovery Button
+        ImGui.PushStyleColor(ImGuiCol.Button, new Vector4(0.5f, 0.2f, 0.8f, 1));
+        ImGui.PushStyleColor(ImGuiCol.ButtonHovered, new Vector4(0.6f, 0.3f, 0.9f, 1));
+        ImGui.PushStyleColor(ImGuiCol.ButtonActive, new Vector4(0.4f, 0.1f, 0.7f, 1));
+
+        if (ImGui.Button("Execute Party Decrease Recovery", new Vector2(400, 35)))
+        {
+            _plugin.ManualExecutePartyDecreaseRecovery();
+        }
+
+        ImGui.PopStyleColor(3);
+
+        if (ImGui.IsItemHovered())
+        {
+            ImGui.SetTooltip("Manually trigger the party decrease recovery sequence\nThis will:\n" +
+                            "1. Disable OpenAddon\n" +
+                            "2. Open recruitment window\n" +
+                            "3. Re-enable OpenAddon\n" +
+                            "4. Restore job masks\n" +
+                            "5. Leave duty\n" +
+                            "6. Start recruiting");
         }
     }
 }
