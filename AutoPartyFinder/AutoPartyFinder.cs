@@ -37,6 +37,7 @@ public unsafe class AutoPartyFinder : IDalamudPlugin
     private const int PARTY_DECREASE_DEBOUNCE_SECONDS = 10; // Wait time after party size decrease
 
     public int RecoveryStepDelayMs { get; set; } = 100;
+    public bool UseJobMaskOverride => PluginConfig?.UseJobMaskOverride ?? false;
 
     public IDalamudPluginInterface PluginInterface { get; init; }
     public ICommandManager CommandManager { get; init; }
@@ -168,6 +169,20 @@ public unsafe class AutoPartyFinder : IDalamudPlugin
 
         var timeSinceRecruitment = DateTime.UtcNow - _lastRecruitmentTime;
         return timeSinceRecruitment.TotalSeconds <= RECRUITMENT_GRACE_PERIOD_SECONDS;
+    }
+
+    // Get job mask override for a specific slot
+    public ulong? GetJobMaskOverrideForSlot(int slotIndex)
+    {
+        if (!UseJobMaskOverride)
+            return null;
+
+        if (PluginConfig.SlotJobMaskOverrides.TryGetValue(slotIndex, out ulong mask))
+        {
+            return mask;
+        }
+
+        return null;
     }
 
     // Execute restore party mask routine
@@ -386,40 +401,56 @@ public unsafe class AutoPartyFinder : IDalamudPlugin
     // Restore job masks for empty slots only
     private void RestoreJobMasksForEmptySlots(IntPtr agent)
     {
-        var backupData = _partyFinderService.GetLastBackupData();
-        if (!backupData.HasValue)
-        {
-            PluginLog.Warning("[Recovery] No backup data available for job mask restoration");
-            return;
-        }
-
         var slots = new PartyFinderSlots(agent, PluginLog);
         var currentSlots = slots.GetAllSlots();
 
-        foreach (var backupSlot in backupData.Value.SlotInfos)
+        foreach (var currentSlot in currentSlots)
         {
-            // Find corresponding current slot
-            if (backupSlot.Index >= currentSlots.Count)
-                continue;
-
-            var currentSlot = currentSlots[backupSlot.Index];
-
             // Only restore if slot is currently empty
-            if (!currentSlot.IsTaken && backupSlot.AllowedJobsMask != 0)
+            if (!currentSlot.IsTaken)
             {
-                try
+                ulong maskToSet = 0;
+
+                // First check for override
+                var overrideMask = GetJobMaskOverrideForSlot(currentSlot.Index);
+                if (overrideMask.HasValue)
                 {
-                    _partyFinderService.SetAllowedJobsMask(agent, backupSlot.Index, backupSlot.AllowedJobsMask);
-                    PluginLog.Information($"[Recovery] Restored job mask for slot {backupSlot.Index + 1}: 0x{backupSlot.AllowedJobsMask:X}");
+                    maskToSet = overrideMask.Value;
+                    PluginLog.Information($"[Recovery] Using override mask for slot {currentSlot.Index + 1}: 0x{maskToSet:X}");
                 }
-                catch (Exception ex)
+                else
                 {
-                    PluginLog.Error(ex, $"[Recovery] Failed to restore job mask for slot {backupSlot.Index + 1}");
+                    // Fall back to backup data
+                    var backupData = _partyFinderService.GetLastBackupData();
+                    if (backupData.HasValue)
+                    {
+                        // Find corresponding backup slot
+                        var backupSlot = backupData.Value.SlotInfos.Find(s => s.Index == currentSlot.Index);
+                        if (backupSlot.AllowedJobsMask != 0)
+                        {
+                            maskToSet = backupSlot.AllowedJobsMask;
+                            PluginLog.Information($"[Recovery] Using backup mask for slot {currentSlot.Index + 1}: 0x{maskToSet:X}");
+                        }
+                    }
+                }
+
+                // Apply the mask if we have one
+                if (maskToSet != 0)
+                {
+                    try
+                    {
+                        _partyFinderService.SetAllowedJobsMask(agent, currentSlot.Index, maskToSet);
+                        PluginLog.Information($"[Recovery] Restored job mask for slot {currentSlot.Index + 1}: 0x{maskToSet:X}");
+                    }
+                    catch (Exception ex)
+                    {
+                        PluginLog.Error(ex, $"[Recovery] Failed to restore job mask for slot {currentSlot.Index + 1}");
+                    }
                 }
             }
-            else if (currentSlot.IsTaken)
+            else
             {
-                PluginLog.Debug($"[Recovery] Slot {backupSlot.Index + 1} is taken, skipping job mask restoration");
+                PluginLog.Debug($"[Recovery] Slot {currentSlot.Index + 1} is taken, skipping job mask restoration");
             }
         }
     }

@@ -1,8 +1,11 @@
 ﻿using System;
 using System.Numerics;
+using System.Collections.Generic;
+using System.Linq;
 using Dalamud.Configuration;
 using ImGuiNET;
 using AutoPartyFinder.Services;
+using AutoPartyFinder.Constants;
 
 namespace AutoPartyFinder;
 
@@ -13,7 +16,16 @@ public class AutoPartyFinderConfig : IPluginConfiguration
     public bool ShowDebugFunctions { get; set; } = false;
     public int RecoveryStepDelayMs { get; set; } = 1000;
 
+    // Job Mask Override Settings
+    public bool UseJobMaskOverride { get; set; } = false;
+    public Dictionary<int, ulong> SlotJobMaskOverrides { get; set; } = new();
+
     [NonSerialized] private AutoPartyFinder? _plugin;
+
+    // UI State (not saved)
+    [NonSerialized] private bool _showJobSelectionPopup = false;
+    [NonSerialized] private int _currentConfigSlot = -1;
+    [NonSerialized] private HashSet<ulong> _tempSelectedJobs = new();
 
     public void Init(AutoPartyFinder plugin)
     {
@@ -41,7 +53,7 @@ public class AutoPartyFinderConfig : IPluginConfiguration
         var drawConfig = true;
         var windowFlags = ImGuiWindowFlags.AlwaysAutoResize | ImGuiWindowFlags.NoCollapse;
 
-        ImGui.SetNextWindowSize(new Vector2(450, ShowDebugFunctions ? 1200 : 850), ImGuiCond.FirstUseEver);
+        ImGui.SetNextWindowSize(new Vector2(450, ShowDebugFunctions ? 1400 : 1000), ImGuiCond.FirstUseEver);
         ImGui.Begin($"{_plugin.Name} Configuration", ref drawConfig, windowFlags);
 
         // Auto-Renewal Feature Section
@@ -53,6 +65,13 @@ public class AutoPartyFinderConfig : IPluginConfiguration
 
         // Party Size Tracking Section
         DrawPartySizeTracking();
+
+        ImGui.Spacing();
+        ImGui.Separator();
+        ImGui.Spacing();
+
+        // Job Mask Override Section - NEW
+        DrawJobMaskOverrideSection();
 
         ImGui.Spacing();
         ImGui.Separator();
@@ -103,7 +122,387 @@ public class AutoPartyFinderConfig : IPluginConfiguration
 
         ImGui.End();
 
+        // Draw job selection popup if needed
+        if (_showJobSelectionPopup)
+        {
+            DrawJobSelectionPopup();
+        }
+
         return drawConfig;
+    }
+
+    private void DrawJobMaskOverrideSection()
+    {
+        ImGui.PushStyleColor(ImGuiCol.Text, new Vector4(0.5f, 1f, 0.5f, 1));
+        ImGui.Text("Job Mask Override");
+        ImGui.PopStyleColor();
+        ImGui.Separator();
+        ImGui.Spacing();
+
+        // Main toggle
+        bool useOverride = UseJobMaskOverride;
+        if (ImGui.Checkbox("Enable Job Mask Override", ref useOverride))
+        {
+            UseJobMaskOverride = useOverride;
+            Save();
+        }
+
+        if (ImGui.IsItemHovered())
+        {
+            ImGui.SetTooltip("When enabled, uses custom job masks instead of the ones saved when recruitment started");
+        }
+
+        if (UseJobMaskOverride)
+        {
+            ImGui.TextColored(new Vector4(0, 1, 0, 1), "● Override Active");
+            ImGui.TextWrapped("Custom job masks will be used when party decrease recovery runs");
+        }
+        else
+        {
+            ImGui.TextColored(new Vector4(0.7f, 0.7f, 0.7f, 1), "○ Override Inactive");
+            ImGui.TextWrapped("Original job masks from recruitment start will be used");
+        }
+
+        ImGui.Spacing();
+
+        // Get current duty slots
+        var agent = _plugin!.GetPartyFinderService().GetLookingForGroupAgent();
+        int totalSlots = 0;
+
+        if (agent != IntPtr.Zero)
+        {
+            var slots = new PartyFinderSlots(agent, _plugin!.PluginLog);
+            totalSlots = slots.GetTotalSlots();
+        }
+
+        if (totalSlots > 0)
+        {
+            ImGui.TextColored(new Vector4(0.8f, 0.8f, 0.5f, 1),
+                $"Configuring {totalSlots} slots for current duty");
+
+            ImGui.Spacing();
+
+            // Slot configuration table
+            if (ImGui.BeginTable("JobMaskOverrideTable", 3,
+                ImGuiTableFlags.Borders | ImGuiTableFlags.RowBg | ImGuiTableFlags.Resizable))
+            {
+                ImGui.TableSetupColumn("Slot", ImGuiTableColumnFlags.WidthFixed, 50);
+                ImGui.TableSetupColumn("Current Mask", ImGuiTableColumnFlags.WidthStretch);
+                ImGui.TableSetupColumn("Actions", ImGuiTableColumnFlags.WidthFixed, 100);
+                ImGui.TableHeadersRow();
+
+                for (int i = 0; i < totalSlots; i++)
+                {
+                    ImGui.TableNextRow();
+                    ImGui.TableNextColumn();
+
+                    // Slot number with indicator if override exists
+                    if (SlotJobMaskOverrides.ContainsKey(i))
+                    {
+                        ImGui.TextColored(new Vector4(0, 1, 0, 1), "●");
+                        ImGui.SameLine();
+                    }
+                    ImGui.Text($"{i + 1}");
+
+                    ImGui.TableNextColumn();
+
+                    // Show current mask value
+                    if (SlotJobMaskOverrides.TryGetValue(i, out ulong mask))
+                    {
+                        string maskDisplay = JobMaskConstants.GetJobDisplayString(mask);
+                        ImGui.Text($"0x{mask:X}");
+
+                        if (ImGui.IsItemHovered())
+                        {
+                            ImGui.SetTooltip(maskDisplay);
+                        }
+                    }
+                    else
+                    {
+                        ImGui.TextDisabled("Not configured");
+                    }
+
+                    ImGui.TableNextColumn();
+
+                    // Configure button
+                    if (ImGui.Button($"Configure##slot{i}", new Vector2(90, 0)))
+                    {
+                        _currentConfigSlot = i;
+                        _tempSelectedJobs.Clear();
+
+                        // Load existing selection if any
+                        if (SlotJobMaskOverrides.TryGetValue(i, out ulong existingMask))
+                        {
+                            foreach (var job in JobMaskConstants.Jobs.Values)
+                            {
+                                if ((existingMask & job.Mask) != 0)
+                                {
+                                    _tempSelectedJobs.Add(job.Mask);
+                                }
+                            }
+                        }
+
+                        _showJobSelectionPopup = true;
+                    }
+                }
+
+                ImGui.EndTable();
+            }
+
+            ImGui.Spacing();
+
+            // Apply buttons
+            if (ImGui.Button("Apply to All Slots", new Vector2(150, 30)))
+            {
+                if (_tempSelectedJobs.Count > 0 || SlotJobMaskOverrides.Count > 0)
+                {
+                    ulong commonMask = _tempSelectedJobs.Count > 0
+                        ? _tempSelectedJobs.Aggregate((a, b) => a | b)
+                        : SlotJobMaskOverrides.Values.FirstOrDefault();
+
+                    for (int i = 0; i < totalSlots; i++)
+                    {
+                        SlotJobMaskOverrides[i] = commonMask;
+                    }
+                    Save();
+                }
+            }
+
+            ImGui.SameLine();
+
+            if (ImGui.Button("Copy from Backup", new Vector2(150, 30)))
+            {
+                CopyMasksFromBackup();
+            }
+
+            if (ImGui.IsItemHovered())
+            {
+                ImGui.SetTooltip("Copy job masks from the last recruitment backup");
+            }
+        }
+        else
+        {
+            ImGui.TextColored(new Vector4(1, 1, 0, 1), "No duty selected or Party Finder not open");
+        }
+    }
+
+    private void DrawJobSelectionPopup()
+    {
+        ImGui.SetNextWindowSize(new Vector2(600, 500), ImGuiCond.FirstUseEver);
+
+        bool popupOpen = true;
+        if (ImGui.Begin($"Configure Jobs for Slot {_currentConfigSlot + 1}###JobSelectionPopup",
+            ref popupOpen, ImGuiWindowFlags.NoCollapse))
+        {
+            // Quick select buttons
+            if (ImGui.Button("All Jobs", new Vector2(100, 30)))
+            {
+                _tempSelectedJobs.Clear();
+                foreach (var job in JobMaskConstants.Jobs.Values)
+                {
+                    if (job.Name != "Blue Mage") // Exclude Blue Mage from "All"
+                        _tempSelectedJobs.Add(job.Mask);
+                }
+            }
+
+            ImGui.SameLine();
+
+            if (ImGui.Button("None", new Vector2(100, 30)))
+            {
+                _tempSelectedJobs.Clear();
+            }
+
+            ImGui.Separator();
+            ImGui.Spacing();
+
+            // Category checkboxes
+            DrawCategoryCheckbox("All Tanks", JobMaskConstants.AllTanks,
+                JobMaskConstants.JobCategory.Tank);
+
+            DrawCategoryCheckbox("All Healers", JobMaskConstants.AllHealers,
+                JobMaskConstants.JobCategory.Healer);
+
+            DrawCategoryCheckbox("All DPS", JobMaskConstants.AllDPS,
+                JobMaskConstants.JobCategory.MeleeDPS,
+                JobMaskConstants.JobCategory.PhysicalRangedDPS,
+                JobMaskConstants.JobCategory.MagicalRangedDPS);
+
+            ImGui.Separator();
+            ImGui.Spacing();
+
+            // Sub-category checkboxes
+            DrawCategoryCheckbox("All Melee DPS", JobMaskConstants.AllMeleeDPS,
+                JobMaskConstants.JobCategory.MeleeDPS);
+
+            DrawCategoryCheckbox("All Physical Ranged DPS", JobMaskConstants.AllPhysicalRangedDPS,
+                JobMaskConstants.JobCategory.PhysicalRangedDPS);
+
+            DrawCategoryCheckbox("All Magical Ranged DPS", JobMaskConstants.AllMagicalRangedDPS,
+                JobMaskConstants.JobCategory.MagicalRangedDPS);
+
+            ImGui.Separator();
+            ImGui.Spacing();
+
+            // Individual job checkboxes by category
+            ImGui.Text("Individual Jobs:");
+            ImGui.Spacing();
+
+            // Tanks
+            ImGui.TextColored(new Vector4(0.3f, 0.5f, 1f, 1), "Tanks");
+            DrawJobCheckboxes(JobMaskConstants.JobCategory.Tank);
+
+            ImGui.Spacing();
+
+            // Healers
+            ImGui.TextColored(new Vector4(0.3f, 1f, 0.5f, 1), "Healers");
+            DrawJobCheckboxes(JobMaskConstants.JobCategory.Healer);
+
+            ImGui.Spacing();
+
+            // Melee DPS
+            ImGui.TextColored(new Vector4(1f, 0.5f, 0.3f, 1), "Melee DPS");
+            DrawJobCheckboxes(JobMaskConstants.JobCategory.MeleeDPS);
+
+            ImGui.Spacing();
+
+            // Physical Ranged DPS
+            ImGui.TextColored(new Vector4(1f, 0.8f, 0.3f, 1), "Physical Ranged DPS");
+            DrawJobCheckboxes(JobMaskConstants.JobCategory.PhysicalRangedDPS);
+
+            ImGui.Spacing();
+
+            // Magical Ranged DPS
+            ImGui.TextColored(new Vector4(0.8f, 0.3f, 1f, 1), "Magical Ranged DPS");
+            DrawJobCheckboxes(JobMaskConstants.JobCategory.MagicalRangedDPS);
+
+            ImGui.Separator();
+            ImGui.Spacing();
+
+            // Current selection display
+            ulong currentMask = _tempSelectedJobs.Count > 0
+                ? _tempSelectedJobs.Aggregate((a, b) => a | b)
+                : 0;
+
+            ImGui.Text($"Current Selection: 0x{currentMask:X}");
+            ImGui.TextWrapped(JobMaskConstants.GetJobDisplayString(currentMask));
+
+            ImGui.Spacing();
+
+            // Save/Cancel buttons
+            if (ImGui.Button("Save", new Vector2(100, 30)))
+            {
+                if (currentMask != 0)
+                {
+                    SlotJobMaskOverrides[_currentConfigSlot] = currentMask;
+                }
+                else
+                {
+                    SlotJobMaskOverrides.Remove(_currentConfigSlot);
+                }
+                Save();
+                _showJobSelectionPopup = false;
+            }
+
+            ImGui.SameLine();
+
+            if (ImGui.Button("Cancel", new Vector2(100, 30)))
+            {
+                _showJobSelectionPopup = false;
+            }
+
+            ImGui.End();
+        }
+
+        if (!popupOpen)
+        {
+            _showJobSelectionPopup = false;
+        }
+    }
+
+    private void DrawCategoryCheckbox(string label, ulong categoryMask,
+        params JobMaskConstants.JobCategory[] categories)
+    {
+        var jobsInCategory = new List<JobMaskConstants.JobInfo>();
+        foreach (var category in categories)
+        {
+            jobsInCategory.AddRange(JobMaskConstants.GetJobsByCategory(category));
+        }
+
+        bool allSelected = jobsInCategory.All(j => _tempSelectedJobs.Contains(j.Mask));
+        bool someSelected = jobsInCategory.Any(j => _tempSelectedJobs.Contains(j.Mask));
+
+        if (someSelected && !allSelected)
+        {
+            ImGui.PushStyleColor(ImGuiCol.FrameBg, new Vector4(0.5f, 0.5f, 0.5f, 0.5f));
+        }
+
+        bool isChecked = allSelected;
+        if (ImGui.Checkbox(label, ref isChecked))
+        {
+            if (isChecked)
+            {
+                foreach (var job in jobsInCategory)
+                {
+                    _tempSelectedJobs.Add(job.Mask);
+                }
+            }
+            else
+            {
+                foreach (var job in jobsInCategory)
+                {
+                    _tempSelectedJobs.Remove(job.Mask);
+                }
+            }
+        }
+
+        if (someSelected && !allSelected)
+        {
+            ImGui.PopStyleColor();
+        }
+    }
+
+    private void DrawJobCheckboxes(JobMaskConstants.JobCategory category)
+    {
+        var jobs = JobMaskConstants.GetJobsByCategory(category);
+        int columnsPerRow = 3;
+
+        for (int i = 0; i < jobs.Count; i++)
+        {
+            if (i % columnsPerRow != 0)
+                ImGui.SameLine();
+
+            var job = jobs[i];
+            bool isSelected = _tempSelectedJobs.Contains(job.Mask);
+
+            if (ImGui.Checkbox($"{job.Name}##job{job.Id}", ref isSelected))
+            {
+                if (isSelected)
+                    _tempSelectedJobs.Add(job.Mask);
+                else
+                    _tempSelectedJobs.Remove(job.Mask);
+            }
+        }
+    }
+
+    private void CopyMasksFromBackup()
+    {
+        var backupData = _plugin!.GetPartyFinderService().GetLastBackupData();
+        if (!backupData.HasValue)
+        {
+            return;
+        }
+
+        SlotJobMaskOverrides.Clear();
+
+        foreach (var slot in backupData.Value.SlotInfos)
+        {
+            if (slot.AllowedJobsMask != 0)
+            {
+                SlotJobMaskOverrides[slot.Index] = slot.AllowedJobsMask;
+            }
+        }
+
+        Save();
     }
 
     private void DrawAutoRenewalSection()
