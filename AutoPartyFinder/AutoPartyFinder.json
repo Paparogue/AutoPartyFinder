@@ -6,6 +6,7 @@
   "Punchline": "Automate Party Finder recruitment with a single button click.",
   "ApplicableVersion": "any",
   "RepoUrl": "https://github.com/Paparogue/AutoPartyFinder",
+  "IconUrl": "https://raw.github.com/Paparogue/AutoPartyFinder/021188c01716354b5c688829a4bc199b7a866747/logo.png",
   "DalamudApiLevel": 12,
   "Tags": [
     "UI",
