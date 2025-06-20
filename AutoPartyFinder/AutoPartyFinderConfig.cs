@@ -63,15 +63,15 @@ public class AutoPartyFinderConfig : IPluginConfiguration
         ImGui.Separator();
         ImGui.Spacing();
 
-        // Party Size Tracking Section
-        DrawPartySizeTracking();
+        // Job Mask Override Section
+        DrawJobMaskOverrideSection();
 
         ImGui.Spacing();
         ImGui.Separator();
         ImGui.Spacing();
 
-        // Job Mask Override Section - NEW
-        DrawJobMaskOverrideSection();
+        // Party Size Tracking Section
+        DrawPartySizeTracking();
 
         ImGui.Spacing();
         ImGui.Separator();
