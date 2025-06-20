@@ -1,0 +1,14 @@
+{
+  "Author": "Paparogue",
+  "Name": "AutoPartyFinder",
+  "InternalName": "AutoPartyFinder",
+  "Description": "Automate Party Finder recruitment with a single button click.",
+  "Punchline": "Automate Party Finder recruitment with a single button click.",
+  "ApplicableVersion": "any",
+  "RepoUrl": "https://github.com/Paparogue/AutoPartyFinder",
+  "DalamudApiLevel": 12,
+  "Tags": [
+    "UI",
+    "Utility"
+  ]
+}

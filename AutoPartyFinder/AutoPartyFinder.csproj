@@ -1,0 +1,61 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+	<PropertyGroup>
+		<VersionPrefix>1.0.0</VersionPrefix>
+		<OutputType>Library</OutputType>
+		<TargetFramework>net9.0-windows7.0</TargetFramework>
+		<ImplicitUsings>enable</ImplicitUsings>
+		<Nullable>enable</Nullable>
+		<Platforms>AnyCPU;x64</Platforms>
+		<SupportedOSPlatformVersion>7.0</SupportedOSPlatformVersion>
+		<AllowUnsafeBlocks>True</AllowUnsafeBlocks>
+	</PropertyGroup>
+
+	<PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|AnyCPU'">
+		<DebugType>none</DebugType>
+	</PropertyGroup>
+
+	<PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
+		<DebugType>none</DebugType>
+	</PropertyGroup>
+
+	<PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|AnyCPU'">
+		<DebugType>none</DebugType>
+	</PropertyGroup>
+
+	<PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
+		<DebugType>none</DebugType>
+	</PropertyGroup>
+
+	<PropertyGroup>
+		<CopyLocalLockFileAssemblies>true</CopyLocalLockFileAssemblies>
+		<Version>$(VersionPrefix)</Version>
+	</PropertyGroup>
+
+	<ItemGroup>
+		<PackageReference Include="DalamudPackager" Version="12.0.0" />
+	</ItemGroup>
+
+	<ItemGroup>
+		<Reference Include="Dalamud">
+			<HintPath>..\..\..\..\AppData\Roaming\XIVLauncher\addon\Hooks\dev\Dalamud.dll</HintPath>
+			<Private>False</Private>
+		</Reference>
+		<Reference Include="FFXIVClientStructs">
+			<HintPath>..\..\..\..\AppData\Roaming\XIVLauncher\addon\Hooks\dev\FFXIVClientStructs.dll</HintPath>
+			<Private>False</Private>
+		</Reference>
+		<Reference Include="ImGui.NET">
+			<HintPath>..\..\..\..\AppData\Roaming\XIVLauncher\addon\Hooks\dev\ImGui.NET.dll</HintPath>
+			<EmbedInteropTypes></EmbedInteropTypes>
+			<Private>False</Private>
+		</Reference>
+		<Reference Include="Lumina">
+			<HintPath>..\..\..\..\AppData\Roaming\XIVLauncher\addon\Hooks\dev\Lumina.dll</HintPath>
+			<Private>False</Private>
+		</Reference>
+		<Reference Include="Lumina.Excel">
+			<HintPath>..\..\..\..\AppData\Roaming\XIVLauncher\addon\Hooks\dev\Lumina.Excel.dll</HintPath>
+			<Private>False</Private>
+		</Reference>
+	</ItemGroup>
+</Project>
