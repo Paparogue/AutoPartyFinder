@@ -1,5 +1,6 @@
 # AutoPartyFinder
-//![AutoPartyFinder Icon](https://raw.githubusercontent.com/Paparogue/AutoPartyFinder/main/icon.png)
+![AutoPartyFinder Icon](https://raw.github.com/Paparogue/AutoPartyFinder/2304853fe6efff64fcaa4b2e02af6691c65ec2d3/logo.png)
+
 A Party Finder automation plugin that maintains your recruitment listing and recovers from party changes in FFXIV.
 
 ## Installation
@@ -9,7 +10,7 @@ https://raw.githubusercontent.com/Paparogue/PaparogueRepo/refs/heads/main/repo.j
 ```
 
 ## Configuration Guide
-//![AutoPartyFinder Config](https://raw.githubusercontent.com/Paparogue/AutoPartyFinder/main/config_screenshot.png)
+![AutoPartyFinder Config](https://raw.github.com/Paparogue/AutoPartyFinder/2304853fe6efff64fcaa4b2e02af6691c65ec2d3/config.png)
 
 ### Auto-Renewal Feature
 - Prevents the 60-minute expiration timeout
