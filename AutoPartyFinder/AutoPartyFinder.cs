@@ -31,7 +31,7 @@ public unsafe class AutoPartyFinder : IDalamudPlugin
     private bool _pendingPartyRecovery = false;
 
     // Configurable renewal interval
-    public const int RENEWAL_INTERVAL_MINUTES = 5;  // Renews party listing every X minutes
+    public const int RENEWAL_INTERVAL_MINUTES = 55;  // Renews party listing every X minutes
     private const int ONDRAW_CHECK_INTERVAL_MS = 500;
     private const int PARTY_SIZE_CHECK_INTERVAL_MS = 100;
     private const int RECRUITMENT_GRACE_PERIOD_SECONDS = 1; // Grace period after starting recruitment
