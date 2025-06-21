@@ -35,14 +35,13 @@ namespace AutoPartyFinder.Constants
 
         public const ulong BlueMage = 0x2000000;
 
-        // Pre-calculated combination masks (updated without Gladiator/Marauder)
         public const ulong AllTanks = 0x4200500;
         public const ulong AllHealers = 0x20422040;
         public const ulong AllMeleeDPS = 0x508C0A14;
         public const ulong AllPhysicalRangedDPS = 0x8101020;
         public const ulong AllMagicalRangedDPS = 0x8301C080;
         public const ulong AllDPS = 0xDB9DDAB4;
-        public const ulong AllJobs = AllTanks | AllHealers | AllDPS; // Calculated from categories
+        public const ulong AllJobs = 0xFFFFFFFE;
         public const ulong Anybody = 0xFFFFFFFE;
         public const ulong None = 0x0;
 
