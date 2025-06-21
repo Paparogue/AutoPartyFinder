@@ -361,8 +361,8 @@ public class JobOverrideUI
         if (shouldLock && !_allDPSSelected) ImGui.EndDisabled();
         ImGui.PopStyleColor();
 
-        // Only show DPS subcategories if not in "All Jobs" mode
-        if (!_allJobsMode)
+        // Only show DPS subcategories if not in "All Jobs" mode and "All DPS" is not selected
+        if (!_allJobsMode && !_allDPSSelected)
         {
             ImGui.Separator();
             ImGui.Spacing();
