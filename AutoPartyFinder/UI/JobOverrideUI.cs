@@ -137,14 +137,7 @@ public class JobOverrideUI
 
             ImGui.Spacing();
 
-            // Apply buttons
-            if (ImGui.Button("Apply to All Slots", new Vector2(150, 30)))
-            {
-                ApplyToAllSlots(totalSlots);
-            }
-
-            ImGui.SameLine();
-
+            // Copy from backup button
             if (ImGui.Button("Copy from Backup", new Vector2(150, 30)))
             {
                 CopyMasksFromBackup();
@@ -185,43 +178,96 @@ public class JobOverrideUI
         // Load existing selection if any
         if (_config.SlotJobMaskOverrides.TryGetValue(slotIndex, out ulong existingMask))
         {
-            // Check for category selections
-            if (existingMask == JobMaskConstants.AllJobs)
+            // Check for category selections and populate individual jobs
+            if (existingMask == JobMaskConstants.AllJobs || existingMask == JobMaskConstants.Anybody)
             {
                 // All Jobs = All Tanks + All Healers + All DPS
                 _allTanksSelected = true;
                 _allHealersSelected = true;
                 _allDPSSelected = true;
+                _allJobsMode = true;
+                _isAnyLocked = true;
+
+                // Add all individual jobs
+                foreach (var job in JobMaskConstants.Jobs.Values)
+                {
+                    _tempSelectedJobs.Add(job.Mask);
+                }
             }
             else if (existingMask == JobMaskConstants.AllTanks)
             {
                 _allTanksSelected = true;
                 _isAnyLocked = true;
+
+                // Add all tank jobs
+                var tanks = JobMaskConstants.GetJobsByCategory(JobMaskConstants.JobCategory.Tank);
+                foreach (var job in tanks)
+                {
+                    _tempSelectedJobs.Add(job.Mask);
+                }
             }
             else if (existingMask == JobMaskConstants.AllHealers)
             {
                 _allHealersSelected = true;
                 _isAnyLocked = true;
+
+                // Add all healer jobs
+                var healers = JobMaskConstants.GetJobsByCategory(JobMaskConstants.JobCategory.Healer);
+                foreach (var job in healers)
+                {
+                    _tempSelectedJobs.Add(job.Mask);
+                }
             }
             else if (existingMask == JobMaskConstants.AllMeleeDPS)
             {
                 _allMeleeDPSSelected = true;
                 _isAnyLocked = true;
+
+                // Add all melee DPS jobs
+                var meleeDps = JobMaskConstants.GetJobsByCategory(JobMaskConstants.JobCategory.MeleeDPS);
+                foreach (var job in meleeDps)
+                {
+                    _tempSelectedJobs.Add(job.Mask);
+                }
             }
             else if (existingMask == JobMaskConstants.AllPhysicalRangedDPS)
             {
                 _allPhysicalRangedDPSSelected = true;
                 _isAnyLocked = true;
+
+                // Add all physical ranged DPS jobs
+                var physRanged = JobMaskConstants.GetJobsByCategory(JobMaskConstants.JobCategory.PhysicalRangedDPS);
+                foreach (var job in physRanged)
+                {
+                    _tempSelectedJobs.Add(job.Mask);
+                }
             }
             else if (existingMask == JobMaskConstants.AllMagicalRangedDPS)
             {
                 _allMagicalRangedDPSSelected = true;
                 _isAnyLocked = true;
+
+                // Add all magical ranged DPS jobs
+                var magRanged = JobMaskConstants.GetJobsByCategory(JobMaskConstants.JobCategory.MagicalRangedDPS);
+                foreach (var job in magRanged)
+                {
+                    _tempSelectedJobs.Add(job.Mask);
+                }
             }
             else if (existingMask == JobMaskConstants.AllDPS)
             {
                 _allDPSSelected = true;
                 _isAnyLocked = true;
+
+                // Add all DPS jobs
+                var allDps = JobMaskConstants.GetJobsByCategory(JobMaskConstants.JobCategory.MeleeDPS)
+                    .Concat(JobMaskConstants.GetJobsByCategory(JobMaskConstants.JobCategory.PhysicalRangedDPS))
+                    .Concat(JobMaskConstants.GetJobsByCategory(JobMaskConstants.JobCategory.MagicalRangedDPS));
+
+                foreach (var job in allDps)
+                {
+                    _tempSelectedJobs.Add(job.Mask);
+                }
             }
             else
             {
@@ -669,31 +715,6 @@ public class JobOverrideUI
 
         _config.Save();
         _showJobSelectionPopup = false;
-    }
-
-    private void ApplyToAllSlots(int totalSlots)
-    {
-        // Get the current mask from the first configured slot, or create a default
-        ulong commonMask = 0;
-
-        if (_config.SlotJobMaskOverrides.Count > 0)
-        {
-            commonMask = _config.SlotJobMaskOverrides.Values.FirstOrDefault();
-        }
-        else
-        {
-            // Default to All Jobs if nothing is configured
-            commonMask = JobMaskConstants.AllJobs;
-        }
-
-        if (commonMask != 0)
-        {
-            for (int i = 0; i < totalSlots; i++)
-            {
-                _config.SlotJobMaskOverrides[i] = commonMask;
-            }
-            _config.Save();
-        }
     }
 
     private void CopyMasksFromBackup()
