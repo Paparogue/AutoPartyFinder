@@ -7,9 +7,7 @@ namespace AutoPartyFinder.Constants
     public static class JobMaskConstants
     {
         // Individual job masks
-        public const ulong Gladiator = 0x2;
         public const ulong Paladin = 0x100;
-        public const ulong Marauder = 0x8;
         public const ulong Warrior = 0x400;
         public const ulong DarkKnight = 0x200000;
         public const ulong Gunbreaker = 0x4000000;
@@ -37,8 +35,8 @@ namespace AutoPartyFinder.Constants
 
         public const ulong BlueMage = 0x2000000;
 
-        // Pre-calculated combination masks
-        public const ulong AllTanks = 0x420050A;
+        // Pre-calculated combination masks (updated without Gladiator/Marauder)
+        public const ulong AllTanks = 0x4200500;
         public const ulong AllHealers = 0x20422040;
         public const ulong AllMeleeDPS = 0x508C0A14;
         public const ulong AllPhysicalRangedDPS = 0x8101020;
@@ -69,9 +67,7 @@ namespace AutoPartyFinder.Constants
         public static readonly Dictionary<string, JobInfo> Jobs = new()
         {
             // Tanks
-            ["Gladiator"] = new JobInfo { Name = "Gladiator", Mask = Gladiator, Category = JobCategory.Tank },
             ["Paladin"] = new JobInfo { Name = "Paladin", Mask = Paladin, Category = JobCategory.Tank },
-            ["Marauder"] = new JobInfo { Name = "Marauder", Mask = Marauder, Category = JobCategory.Tank },
             ["Warrior"] = new JobInfo { Name = "Warrior", Mask = Warrior, Category = JobCategory.Tank },
             ["DarkKnight"] = new JobInfo { Name = "Dark Knight", Mask = DarkKnight, Category = JobCategory.Tank },
             ["Gunbreaker"] = new JobInfo { Name = "Gunbreaker", Mask = Gunbreaker, Category = JobCategory.Tank },
