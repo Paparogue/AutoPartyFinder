@@ -3,6 +3,7 @@ using Dalamud.Plugin;
 using Dalamud.Game.Command;
 using Dalamud.Plugin.Services;
 using AutoPartyFinder.Services;
+using AutoPartyFinder.UI;
 using Dalamud.Game;
 using System.Runtime.InteropServices;
 

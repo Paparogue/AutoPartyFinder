@@ -43,7 +43,7 @@ namespace AutoPartyFinder.Constants
         public const ulong AllMeleeDPS = 0x508C0A14;
         public const ulong AllPhysicalRangedDPS = 0x8101020;
         public const ulong AllMagicalRangedDPS = 0x8301C080;
-        public const ulong AllDPS = 0xD89DDAB4;
+        public const ulong AllDPS = 0xDB9DDAB4;
         public const ulong AllJobs = AllTanks | AllHealers | AllDPS; // Calculated from categories
         public const ulong Anybody = 0xFFFFFFFE;
         public const ulong None = 0x0;
