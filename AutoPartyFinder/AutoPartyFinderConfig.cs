@@ -26,6 +26,12 @@ public class AutoPartyFinderConfig : IPluginConfiguration
     [NonSerialized] private bool _showJobSelectionPopup = false;
     [NonSerialized] private int _currentConfigSlot = -1;
     [NonSerialized] private HashSet<ulong> _tempSelectedJobs = new();
+    [NonSerialized] private bool _allTanksSelected = false;
+    [NonSerialized] private bool _allHealersSelected = false;
+    [NonSerialized] private bool _allMeleeDPSSelected = false;
+    [NonSerialized] private bool _allPhysicalRangedDPSSelected = false;
+    [NonSerialized] private bool _allMagicalRangedDPSSelected = false;
+    [NonSerialized] private bool _allDPSSelected = false;
 
     public void Init(AutoPartyFinder plugin)
     {
@@ -229,15 +235,32 @@ public class AutoPartyFinderConfig : IPluginConfiguration
                     {
                         _currentConfigSlot = i;
                         _tempSelectedJobs.Clear();
+                        _allTanksSelected = false;
+                        _allHealersSelected = false;
+                        _allMeleeDPSSelected = false;
+                        _allPhysicalRangedDPSSelected = false;
+                        _allMagicalRangedDPSSelected = false;
+                        _allDPSSelected = false;
 
                         // Load existing selection if any
                         if (SlotJobMaskOverrides.TryGetValue(i, out ulong existingMask))
                         {
-                            foreach (var job in JobMaskConstants.Jobs.Values)
+                            // Check for category selections
+                            if (existingMask == JobMaskConstants.AllTanks) _allTanksSelected = true;
+                            else if (existingMask == JobMaskConstants.AllHealers) _allHealersSelected = true;
+                            else if (existingMask == JobMaskConstants.AllMeleeDPS) _allMeleeDPSSelected = true;
+                            else if (existingMask == JobMaskConstants.AllPhysicalRangedDPS) _allPhysicalRangedDPSSelected = true;
+                            else if (existingMask == JobMaskConstants.AllMagicalRangedDPS) _allMagicalRangedDPSSelected = true;
+                            else if (existingMask == JobMaskConstants.AllDPS) _allDPSSelected = true;
+                            else
                             {
-                                if ((existingMask & job.Mask) != 0)
+                                // Load individual jobs
+                                foreach (var job in JobMaskConstants.Jobs.Values)
                                 {
-                                    _tempSelectedJobs.Add(job.Mask);
+                                    if ((existingMask & job.Mask) != 0)
+                                    {
+                                        _tempSelectedJobs.Add(job.Mask);
+                                    }
                                 }
                             }
                         }
@@ -298,11 +321,13 @@ public class AutoPartyFinderConfig : IPluginConfiguration
             if (ImGui.Button("All Jobs", new Vector2(100, 30)))
             {
                 _tempSelectedJobs.Clear();
-                foreach (var job in JobMaskConstants.Jobs.Values)
-                {
-                    if (job.Name != "Blue Mage") // Exclude Blue Mage from "All"
-                        _tempSelectedJobs.Add(job.Mask);
-                }
+                // Set category flags instead of individual jobs
+                _allTanksSelected = true;
+                _allHealersSelected = true;
+                _allDPSSelected = true;
+                _allMeleeDPSSelected = true;
+                _allPhysicalRangedDPSSelected = true;
+                _allMagicalRangedDPSSelected = true;
             }
 
             ImGui.SameLine();
@@ -310,35 +335,59 @@ public class AutoPartyFinderConfig : IPluginConfiguration
             if (ImGui.Button("None", new Vector2(100, 30)))
             {
                 _tempSelectedJobs.Clear();
+                _allTanksSelected = false;
+                _allHealersSelected = false;
+                _allDPSSelected = false;
+                _allMeleeDPSSelected = false;
+                _allPhysicalRangedDPSSelected = false;
+                _allMagicalRangedDPSSelected = false;
             }
 
             ImGui.Separator();
             ImGui.Spacing();
 
             // Category checkboxes
-            DrawCategoryCheckbox("All Tanks", JobMaskConstants.AllTanks,
-                JobMaskConstants.JobCategory.Tank);
+            if (ImGui.Checkbox("All Tanks", ref _allTanksSelected))
+            {
+                UpdateJobSelectionForCategory(JobMaskConstants.JobCategory.Tank, _allTanksSelected);
+            }
 
-            DrawCategoryCheckbox("All Healers", JobMaskConstants.AllHealers,
-                JobMaskConstants.JobCategory.Healer);
+            if (ImGui.Checkbox("All Healers", ref _allHealersSelected))
+            {
+                UpdateJobSelectionForCategory(JobMaskConstants.JobCategory.Healer, _allHealersSelected);
+            }
 
-            DrawCategoryCheckbox("All DPS", JobMaskConstants.AllDPS,
-                JobMaskConstants.JobCategory.MeleeDPS,
-                JobMaskConstants.JobCategory.PhysicalRangedDPS,
-                JobMaskConstants.JobCategory.MagicalRangedDPS);
+            if (ImGui.Checkbox("All DPS", ref _allDPSSelected))
+            {
+                _allMeleeDPSSelected = _allDPSSelected;
+                _allPhysicalRangedDPSSelected = _allDPSSelected;
+                _allMagicalRangedDPSSelected = _allDPSSelected;
+                UpdateJobSelectionForCategory(JobMaskConstants.JobCategory.MeleeDPS, _allDPSSelected);
+                UpdateJobSelectionForCategory(JobMaskConstants.JobCategory.PhysicalRangedDPS, _allDPSSelected);
+                UpdateJobSelectionForCategory(JobMaskConstants.JobCategory.MagicalRangedDPS, _allDPSSelected);
+            }
 
             ImGui.Separator();
             ImGui.Spacing();
 
             // Sub-category checkboxes
-            DrawCategoryCheckbox("All Melee DPS", JobMaskConstants.AllMeleeDPS,
-                JobMaskConstants.JobCategory.MeleeDPS);
+            if (ImGui.Checkbox("All Melee DPS", ref _allMeleeDPSSelected))
+            {
+                UpdateJobSelectionForCategory(JobMaskConstants.JobCategory.MeleeDPS, _allMeleeDPSSelected);
+                CheckDPSCategoryConsistency();
+            }
 
-            DrawCategoryCheckbox("All Physical Ranged DPS", JobMaskConstants.AllPhysicalRangedDPS,
-                JobMaskConstants.JobCategory.PhysicalRangedDPS);
+            if (ImGui.Checkbox("All Physical Ranged DPS", ref _allPhysicalRangedDPSSelected))
+            {
+                UpdateJobSelectionForCategory(JobMaskConstants.JobCategory.PhysicalRangedDPS, _allPhysicalRangedDPSSelected);
+                CheckDPSCategoryConsistency();
+            }
 
-            DrawCategoryCheckbox("All Magical Ranged DPS", JobMaskConstants.AllMagicalRangedDPS,
-                JobMaskConstants.JobCategory.MagicalRangedDPS);
+            if (ImGui.Checkbox("All Magical Ranged DPS", ref _allMagicalRangedDPSSelected))
+            {
+                UpdateJobSelectionForCategory(JobMaskConstants.JobCategory.MagicalRangedDPS, _allMagicalRangedDPSSelected);
+                CheckDPSCategoryConsistency();
+            }
 
             ImGui.Separator();
             ImGui.Spacing();
@@ -349,39 +398,37 @@ public class AutoPartyFinderConfig : IPluginConfiguration
 
             // Tanks
             ImGui.TextColored(new Vector4(0.3f, 0.5f, 1f, 1), "Tanks");
-            DrawJobCheckboxes(JobMaskConstants.JobCategory.Tank);
+            DrawJobCheckboxes(JobMaskConstants.JobCategory.Tank, _allTanksSelected);
 
             ImGui.Spacing();
 
             // Healers
             ImGui.TextColored(new Vector4(0.3f, 1f, 0.5f, 1), "Healers");
-            DrawJobCheckboxes(JobMaskConstants.JobCategory.Healer);
+            DrawJobCheckboxes(JobMaskConstants.JobCategory.Healer, _allHealersSelected);
 
             ImGui.Spacing();
 
             // Melee DPS
             ImGui.TextColored(new Vector4(1f, 0.5f, 0.3f, 1), "Melee DPS");
-            DrawJobCheckboxes(JobMaskConstants.JobCategory.MeleeDPS);
+            DrawJobCheckboxes(JobMaskConstants.JobCategory.MeleeDPS, _allMeleeDPSSelected);
 
             ImGui.Spacing();
 
             // Physical Ranged DPS
             ImGui.TextColored(new Vector4(1f, 0.8f, 0.3f, 1), "Physical Ranged DPS");
-            DrawJobCheckboxes(JobMaskConstants.JobCategory.PhysicalRangedDPS);
+            DrawJobCheckboxes(JobMaskConstants.JobCategory.PhysicalRangedDPS, _allPhysicalRangedDPSSelected);
 
             ImGui.Spacing();
 
             // Magical Ranged DPS
             ImGui.TextColored(new Vector4(0.8f, 0.3f, 1f, 1), "Magical Ranged DPS");
-            DrawJobCheckboxes(JobMaskConstants.JobCategory.MagicalRangedDPS);
+            DrawJobCheckboxes(JobMaskConstants.JobCategory.MagicalRangedDPS, _allMagicalRangedDPSSelected);
 
             ImGui.Separator();
             ImGui.Spacing();
 
             // Current selection display
-            ulong currentMask = _tempSelectedJobs.Count > 0
-                ? _tempSelectedJobs.Aggregate((a, b) => a | b)
-                : 0;
+            ulong currentMask = GetCurrentSelectionMask();
 
             ImGui.Text($"Current Selection: 0x{currentMask:X}");
             ImGui.TextWrapped(JobMaskConstants.GetJobDisplayString(currentMask));
@@ -419,68 +466,103 @@ public class AutoPartyFinderConfig : IPluginConfiguration
         }
     }
 
-    private void DrawCategoryCheckbox(string label, ulong categoryMask,
-        params JobMaskConstants.JobCategory[] categories)
+    private ulong GetCurrentSelectionMask()
     {
-        var jobsInCategory = new List<JobMaskConstants.JobInfo>();
-        foreach (var category in categories)
-        {
-            jobsInCategory.AddRange(JobMaskConstants.GetJobsByCategory(category));
-        }
+        // Check for special category selections first
+        if (_allTanksSelected && _allHealersSelected && _allDPSSelected)
+            return JobMaskConstants.AllJobs;
+        if (_allTanksSelected && !HasIndividualJobsInCategory(JobMaskConstants.JobCategory.Tank))
+            return JobMaskConstants.AllTanks;
+        if (_allHealersSelected && !HasIndividualJobsInCategory(JobMaskConstants.JobCategory.Healer))
+            return JobMaskConstants.AllHealers;
+        if (_allDPSSelected && !HasIndividualJobsInCategory(JobMaskConstants.JobCategory.MeleeDPS) &&
+            !HasIndividualJobsInCategory(JobMaskConstants.JobCategory.PhysicalRangedDPS) &&
+            !HasIndividualJobsInCategory(JobMaskConstants.JobCategory.MagicalRangedDPS))
+            return JobMaskConstants.AllDPS;
+        if (_allMeleeDPSSelected && !HasIndividualJobsInCategory(JobMaskConstants.JobCategory.MeleeDPS))
+            return JobMaskConstants.AllMeleeDPS;
+        if (_allPhysicalRangedDPSSelected && !HasIndividualJobsInCategory(JobMaskConstants.JobCategory.PhysicalRangedDPS))
+            return JobMaskConstants.AllPhysicalRangedDPS;
+        if (_allMagicalRangedDPSSelected && !HasIndividualJobsInCategory(JobMaskConstants.JobCategory.MagicalRangedDPS))
+            return JobMaskConstants.AllMagicalRangedDPS;
 
-        bool allSelected = jobsInCategory.All(j => _tempSelectedJobs.Contains(j.Mask));
-        bool someSelected = jobsInCategory.Any(j => _tempSelectedJobs.Contains(j.Mask));
+        // Otherwise, calculate from individual selections
+        return _tempSelectedJobs.Count > 0 ? _tempSelectedJobs.Aggregate((a, b) => a | b) : 0;
+    }
 
-        if (someSelected && !allSelected)
-        {
-            ImGui.PushStyleColor(ImGuiCol.FrameBg, new Vector4(0.5f, 0.5f, 0.5f, 0.5f));
-        }
+    private bool HasIndividualJobsInCategory(JobMaskConstants.JobCategory category)
+    {
+        var jobs = JobMaskConstants.GetJobsByCategory(category);
+        return jobs.Any(j => !_tempSelectedJobs.Contains(j.Mask));
+    }
 
-        bool isChecked = allSelected;
-        if (ImGui.Checkbox(label, ref isChecked))
+    private void UpdateJobSelectionForCategory(JobMaskConstants.JobCategory category, bool selected)
+    {
+        var jobs = JobMaskConstants.GetJobsByCategory(category);
+
+        if (selected)
         {
-            if (isChecked)
+            foreach (var job in jobs)
             {
-                foreach (var job in jobsInCategory)
-                {
-                    _tempSelectedJobs.Add(job.Mask);
-                }
-            }
-            else
-            {
-                foreach (var job in jobsInCategory)
-                {
-                    _tempSelectedJobs.Remove(job.Mask);
-                }
+                _tempSelectedJobs.Add(job.Mask);
             }
         }
-
-        if (someSelected && !allSelected)
+        else
         {
-            ImGui.PopStyleColor();
+            foreach (var job in jobs)
+            {
+                _tempSelectedJobs.Remove(job.Mask);
+            }
         }
     }
 
-    private void DrawJobCheckboxes(JobMaskConstants.JobCategory category)
+    private void CheckDPSCategoryConsistency()
+    {
+        _allDPSSelected = _allMeleeDPSSelected && _allPhysicalRangedDPSSelected && _allMagicalRangedDPSSelected;
+    }
+
+    private void DrawJobCheckboxes(JobMaskConstants.JobCategory category, bool categorySelected)
     {
         var jobs = JobMaskConstants.GetJobsByCategory(category);
         int columnsPerRow = 3;
 
-        for (int i = 0; i < jobs.Count; i++)
+        if (categorySelected)
         {
-            if (i % columnsPerRow != 0)
-                ImGui.SameLine();
+            ImGui.BeginDisabled();
+        }
 
-            var job = jobs[i];
-            bool isSelected = _tempSelectedJobs.Contains(job.Mask);
-
-            if (ImGui.Checkbox($"{job.Name}##job{job.Id}", ref isSelected))
+        if (ImGui.BeginTable($"JobTable_{category}", columnsPerRow, ImGuiTableFlags.SizingStretchSame))
+        {
+            for (int i = 0; i < jobs.Count; i++)
             {
-                if (isSelected)
-                    _tempSelectedJobs.Add(job.Mask);
+                ImGui.TableNextColumn();
+
+                var job = jobs[i];
+                bool isSelected = categorySelected || _tempSelectedJobs.Contains(job.Mask);
+
+                if (categorySelected)
+                {
+                    // Show as checked but disabled
+                    ImGui.Checkbox($"{job.Name}##job{job.Name}", ref isSelected);
+                }
                 else
-                    _tempSelectedJobs.Remove(job.Mask);
+                {
+                    if (ImGui.Checkbox($"{job.Name}##job{job.Name}", ref isSelected))
+                    {
+                        if (isSelected)
+                            _tempSelectedJobs.Add(job.Mask);
+                        else
+                            _tempSelectedJobs.Remove(job.Mask);
+                    }
+                }
             }
+
+            ImGui.EndTable();
+        }
+
+        if (categorySelected)
+        {
+            ImGui.EndDisabled();
         }
     }
 
@@ -781,6 +863,13 @@ public class AutoPartyFinderConfig : IPluginConfiguration
                     if (slot.AllowedJobsMask != 0)
                     {
                         ImGui.Text($"0x{slot.AllowedJobsMask:X}");
+
+                        // Add tooltip showing which jobs are allowed
+                        if (ImGui.IsItemHovered())
+                        {
+                            string jobDisplay = JobMaskConstants.GetJobDisplayString(slot.AllowedJobsMask);
+                            ImGui.SetTooltip(jobDisplay);
+                        }
                     }
                     else
                     {

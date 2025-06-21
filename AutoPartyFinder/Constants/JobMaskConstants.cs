@@ -14,7 +14,7 @@ namespace AutoPartyFinder.Constants
         public const ulong DarkKnight = 0x200000;
         public const ulong Gunbreaker = 0x4000000;
 
-        public const ulong WhiteMage = 0x8000;      // DUMMY - Replace with actual value
+        public const ulong WhiteMage = 0x2000;
         public const ulong Scholar = 0x20000;
         public const ulong Astrologian = 0x400000;
         public const ulong Sage = 0x20000000;
@@ -26,32 +26,32 @@ namespace AutoPartyFinder.Constants
         public const ulong Reaper = 0x10000000;
         public const ulong Viper = 0x40000000;
 
-        public const ulong Bard = 0x1000;          // DUMMY - Replace with actual value
+        public const ulong Bard = 0x1000;
         public const ulong Machinist = 0x100000;
         public const ulong Dancer = 0x8000000;
 
         public const ulong BlackMage = 0x4000;
         public const ulong Summoner = 0x10000;
-        public const ulong RedMage = 0x2000000;     // DUMMY - Replace with actual value
+        public const ulong RedMage = 0x1000000;
         public const ulong Pictomancer = 0x80000000;
 
-        public const ulong BlueMage = 0x100000000;  // DUMMY - Replace with actual value
+        public const ulong BlueMage = 0x2000000;
 
         // Pre-calculated combination masks
-        public const ulong AllTanks = Gladiator | Paladin | Marauder | Warrior | DarkKnight | Gunbreaker; // 0x420050A
-        public const ulong AllHealers = WhiteMage | Scholar | Astrologian | Sage; // 0x20608000
-        public const ulong AllMeleeDPS = Monk | Dragoon | Ninja | Samurai | Reaper | Viper; // 0x50880A00
-        public const ulong AllPhysicalRangedDPS = Bard | Machinist | Dancer; // 0x8101000
-        public const ulong AllMagicalRangedDPS = BlackMage | Summoner | RedMage | Pictomancer; // 0x82014000
-        public const ulong AllDPS = AllMeleeDPS | AllPhysicalRangedDPS | AllMagicalRangedDPS; // 0xDA995A00
-        public const ulong AllJobs = AllTanks | AllHealers | AllDPS; // 0xFAE9FF0A (excluding Blue Mage)
+        public const ulong AllTanks = 0x420050A;
+        public const ulong AllHealers = 0x20422040;
+        public const ulong AllMeleeDPS = 0x508C0A14;
+        public const ulong AllPhysicalRangedDPS = 0x8101020;
+        public const ulong AllMagicalRangedDPS = 0x8301C080;
+        public const ulong AllDPS = 0xD89DDAB4;
+        public const ulong AllJobs = AllTanks | AllHealers | AllDPS; // Calculated from categories
+        public const ulong Anybody = 0xFFFFFFFE;
         public const ulong None = 0x0;
 
         // Job information structure
         public struct JobInfo
         {
             public string Name { get; set; }
-            public byte Id { get; set; }
             public ulong Mask { get; set; }
             public JobCategory Category { get; set; }
         }
@@ -65,44 +65,44 @@ namespace AutoPartyFinder.Constants
             MagicalRangedDPS
         }
 
-        // Job definitions with all information
+        // Job definitions without IDs
         public static readonly Dictionary<string, JobInfo> Jobs = new()
         {
             // Tanks
-            ["Gladiator"] = new JobInfo { Name = "Gladiator", Id = 1, Mask = Gladiator, Category = JobCategory.Tank },
-            ["Paladin"] = new JobInfo { Name = "Paladin", Id = 19, Mask = Paladin, Category = JobCategory.Tank },
-            ["Marauder"] = new JobInfo { Name = "Marauder", Id = 3, Mask = Marauder, Category = JobCategory.Tank },
-            ["Warrior"] = new JobInfo { Name = "Warrior", Id = 21, Mask = Warrior, Category = JobCategory.Tank },
-            ["DarkKnight"] = new JobInfo { Name = "Dark Knight", Id = 32, Mask = DarkKnight, Category = JobCategory.Tank },
-            ["Gunbreaker"] = new JobInfo { Name = "Gunbreaker", Id = 37, Mask = Gunbreaker, Category = JobCategory.Tank },
+            ["Gladiator"] = new JobInfo { Name = "Gladiator", Mask = Gladiator, Category = JobCategory.Tank },
+            ["Paladin"] = new JobInfo { Name = "Paladin", Mask = Paladin, Category = JobCategory.Tank },
+            ["Marauder"] = new JobInfo { Name = "Marauder", Mask = Marauder, Category = JobCategory.Tank },
+            ["Warrior"] = new JobInfo { Name = "Warrior", Mask = Warrior, Category = JobCategory.Tank },
+            ["DarkKnight"] = new JobInfo { Name = "Dark Knight", Mask = DarkKnight, Category = JobCategory.Tank },
+            ["Gunbreaker"] = new JobInfo { Name = "Gunbreaker", Mask = Gunbreaker, Category = JobCategory.Tank },
 
             // Healers
-            ["WhiteMage"] = new JobInfo { Name = "White Mage", Id = 24, Mask = WhiteMage, Category = JobCategory.Healer }, // DUMMY ID
-            ["Scholar"] = new JobInfo { Name = "Scholar", Id = 28, Mask = Scholar, Category = JobCategory.Healer },
-            ["Astrologian"] = new JobInfo { Name = "Astrologian", Id = 33, Mask = Astrologian, Category = JobCategory.Healer },
-            ["Sage"] = new JobInfo { Name = "Sage", Id = 40, Mask = Sage, Category = JobCategory.Healer },
+            ["WhiteMage"] = new JobInfo { Name = "White Mage", Mask = WhiteMage, Category = JobCategory.Healer },
+            ["Scholar"] = new JobInfo { Name = "Scholar", Mask = Scholar, Category = JobCategory.Healer },
+            ["Astrologian"] = new JobInfo { Name = "Astrologian", Mask = Astrologian, Category = JobCategory.Healer },
+            ["Sage"] = new JobInfo { Name = "Sage", Mask = Sage, Category = JobCategory.Healer },
 
             // Melee DPS
-            ["Monk"] = new JobInfo { Name = "Monk", Id = 20, Mask = Monk, Category = JobCategory.MeleeDPS },
-            ["Dragoon"] = new JobInfo { Name = "Dragoon", Id = 22, Mask = Dragoon, Category = JobCategory.MeleeDPS },
-            ["Ninja"] = new JobInfo { Name = "Ninja", Id = 30, Mask = Ninja, Category = JobCategory.MeleeDPS },
-            ["Samurai"] = new JobInfo { Name = "Samurai", Id = 34, Mask = Samurai, Category = JobCategory.MeleeDPS },
-            ["Reaper"] = new JobInfo { Name = "Reaper", Id = 39, Mask = Reaper, Category = JobCategory.MeleeDPS },
-            ["Viper"] = new JobInfo { Name = "Viper", Id = 41, Mask = Viper, Category = JobCategory.MeleeDPS },
+            ["Monk"] = new JobInfo { Name = "Monk", Mask = Monk, Category = JobCategory.MeleeDPS },
+            ["Dragoon"] = new JobInfo { Name = "Dragoon", Mask = Dragoon, Category = JobCategory.MeleeDPS },
+            ["Ninja"] = new JobInfo { Name = "Ninja", Mask = Ninja, Category = JobCategory.MeleeDPS },
+            ["Samurai"] = new JobInfo { Name = "Samurai", Mask = Samurai, Category = JobCategory.MeleeDPS },
+            ["Reaper"] = new JobInfo { Name = "Reaper", Mask = Reaper, Category = JobCategory.MeleeDPS },
+            ["Viper"] = new JobInfo { Name = "Viper", Mask = Viper, Category = JobCategory.MeleeDPS },
 
             // Physical Ranged DPS
-            ["Bard"] = new JobInfo { Name = "Bard", Id = 23, Mask = Bard, Category = JobCategory.PhysicalRangedDPS }, // DUMMY ID
-            ["Machinist"] = new JobInfo { Name = "Machinist", Id = 31, Mask = Machinist, Category = JobCategory.PhysicalRangedDPS },
-            ["Dancer"] = new JobInfo { Name = "Dancer", Id = 38, Mask = Dancer, Category = JobCategory.PhysicalRangedDPS },
+            ["Bard"] = new JobInfo { Name = "Bard", Mask = Bard, Category = JobCategory.PhysicalRangedDPS },
+            ["Machinist"] = new JobInfo { Name = "Machinist", Mask = Machinist, Category = JobCategory.PhysicalRangedDPS },
+            ["Dancer"] = new JobInfo { Name = "Dancer", Mask = Dancer, Category = JobCategory.PhysicalRangedDPS },
 
             // Magical Ranged DPS
-            ["BlackMage"] = new JobInfo { Name = "Black Mage", Id = 25, Mask = BlackMage, Category = JobCategory.MagicalRangedDPS },
-            ["Summoner"] = new JobInfo { Name = "Summoner", Id = 27, Mask = Summoner, Category = JobCategory.MagicalRangedDPS },
-            ["RedMage"] = new JobInfo { Name = "Red Mage", Id = 35, Mask = RedMage, Category = JobCategory.MagicalRangedDPS }, // DUMMY ID
-            ["Pictomancer"] = new JobInfo { Name = "Pictomancer", Id = 42, Mask = Pictomancer, Category = JobCategory.MagicalRangedDPS },
+            ["BlackMage"] = new JobInfo { Name = "Black Mage", Mask = BlackMage, Category = JobCategory.MagicalRangedDPS },
+            ["Summoner"] = new JobInfo { Name = "Summoner", Mask = Summoner, Category = JobCategory.MagicalRangedDPS },
+            ["RedMage"] = new JobInfo { Name = "Red Mage", Mask = RedMage, Category = JobCategory.MagicalRangedDPS },
+            ["Pictomancer"] = new JobInfo { Name = "Pictomancer", Mask = Pictomancer, Category = JobCategory.MagicalRangedDPS },
 
             // Limited Jobs
-            ["BlueMage"] = new JobInfo { Name = "Blue Mage", Id = 36, Mask = BlueMage, Category = JobCategory.MagicalRangedDPS } // DUMMY ID
+            ["BlueMage"] = new JobInfo { Name = "Blue Mage", Mask = BlueMage, Category = JobCategory.MagicalRangedDPS }
         };
 
         // Helper method to get job names from a mask
@@ -124,7 +124,9 @@ namespace AutoPartyFinder.Constants
         // Helper method to get a display string for a mask
         public static string GetJobDisplayString(ulong mask)
         {
-            if (mask == 0) return "None";
+            // Special cases first
+            if (mask == None) return "None";
+            if (mask == Anybody) return "Anybody";
             if (mask == AllJobs) return "All Jobs";
             if (mask == AllTanks) return "All Tanks";
             if (mask == AllHealers) return "All Healers";
