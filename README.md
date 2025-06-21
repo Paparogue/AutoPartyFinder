@@ -1,7 +1,5 @@
-# AutoPartyFinder
+# AutoPartyFinder - ALPHA RELEASE - BUGGY RESTORE - CURRENTLY ONLY FOR TESTING PURPOSE
 ![AutoPartyFinder Icon](https://raw.github.com/Paparogue/AutoPartyFinder/99fbcb558c4938d80dd29b177fed287c2aa7ef4a/apf.png)
-
-ALPHA RELEASE - BUGGY RESTORE - CURRENTLY ONLY FOR TESTING PURPOSE
 
 A Party Finder automation plugin that maintains your recruitment listing and recovers from party changes in FFXIV.
 
