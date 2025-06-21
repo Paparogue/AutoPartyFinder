@@ -56,7 +56,6 @@ public class JobOverrideUI
         if (_config.UseJobMaskOverride)
         {
             ImGui.TextColored(new Vector4(0, 1, 0, 1), "● Override Active");
-            ImGui.TextWrapped("Custom job masks will be used when party decrease recovery runs");
         }
         else
         {
