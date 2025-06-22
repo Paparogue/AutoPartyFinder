@@ -19,6 +19,8 @@ public class JobOverrideUI
     private HashSet<ulong> _tempSelectedJobs = new();
     private bool _allTanksSelected = false;
     private bool _allHealersSelected = false;
+    private bool _pureHealersSelected = false;
+    private bool _barrierHealersSelected = false;
     private bool _allMeleeDPSSelected = false;
     private bool _allPhysicalRangedDPSSelected = false;
     private bool _allMagicalRangedDPSSelected = false;
@@ -167,6 +169,8 @@ public class JobOverrideUI
         _tempSelectedJobs.Clear();
         _allTanksSelected = false;
         _allHealersSelected = false;
+        _pureHealersSelected = false;
+        _barrierHealersSelected = false;
         _allMeleeDPSSelected = false;
         _allPhysicalRangedDPSSelected = false;
         _allMagicalRangedDPSSelected = false;
@@ -213,6 +217,30 @@ public class JobOverrideUI
                 // Add all healer jobs
                 var healers = JobMaskConstants.GetJobsByCategory(JobMaskConstants.JobCategory.Healer);
                 foreach (var job in healers)
+                {
+                    _tempSelectedJobs.Add(job.Mask);
+                }
+            }
+            else if (existingMask == JobMaskConstants.PureHealers)
+            {
+                _pureHealersSelected = true;
+                _isAnyLocked = true;
+
+                // Add pure healer jobs
+                var pureHealers = JobMaskConstants.GetHealersBySubcategory(JobMaskConstants.HealerSubcategory.Pure);
+                foreach (var job in pureHealers)
+                {
+                    _tempSelectedJobs.Add(job.Mask);
+                }
+            }
+            else if (existingMask == JobMaskConstants.BarrierHealers)
+            {
+                _barrierHealersSelected = true;
+                _isAnyLocked = true;
+
+                // Add barrier healer jobs
+                var barrierHealers = JobMaskConstants.GetHealersBySubcategory(JobMaskConstants.HealerSubcategory.Barrier);
+                foreach (var job in barrierHealers)
                 {
                     _tempSelectedJobs.Add(job.Mask);
                 }
@@ -286,7 +314,7 @@ public class JobOverrideUI
 
     private void DrawJobSelectionPopup()
     {
-        ImGui.SetNextWindowSize(new Vector2(600, 600), ImGuiCond.FirstUseEver);
+        ImGui.SetNextWindowSize(new Vector2(600, 700), ImGuiCond.FirstUseEver);
 
         bool popupOpen = true;
         if (ImGui.Begin($"Configure Jobs for Slot {_currentConfigSlot + 1}###JobSelectionPopup",
@@ -406,14 +434,63 @@ public class JobOverrideUI
         if (shouldLock && !_allDPSSelected) ImGui.EndDisabled();
         ImGui.PopStyleColor();
 
-        // Only show DPS subcategories if not in "All Jobs" mode and "All DPS" is not selected
-        if (!_allJobsMode && !_allDPSSelected)
+        // Only show subcategories if not in "All Jobs" mode and parent category is not selected
+        if (!_allJobsMode)
         {
             ImGui.Separator();
             ImGui.Spacing();
 
-            DrawDPSSubcategories(shouldLock);
+            // Healer subcategories (only if All Healers is not selected)
+            if (!_allHealersSelected)
+            {
+                DrawHealerSubcategories(shouldLock);
+            }
+
+            // DPS subcategories (only if All DPS is not selected)
+            if (!_allDPSSelected)
+            {
+                DrawDPSSubcategories(shouldLock);
+            }
         }
+    }
+
+    private void DrawHealerSubcategories(bool shouldLock)
+    {
+        // Pure Healers
+        ImGui.PushStyleColor(ImGuiCol.Text, new Vector4(0.5f, 1f, 0.7f, 1)); // Light Green
+        if (shouldLock && !_pureHealersSelected) ImGui.BeginDisabled();
+        bool pureHealersTemp = _pureHealersSelected;
+        if (ImGui.Checkbox("Pure Healers", ref pureHealersTemp))
+        {
+            if (pureHealersTemp)
+            {
+                ApplyHealerSubcategory(JobMaskConstants.HealerSubcategory.Pure);
+            }
+            else
+            {
+                ClearAllSelections();
+            }
+        }
+        if (shouldLock && !_pureHealersSelected) ImGui.EndDisabled();
+        ImGui.PopStyleColor();
+
+        // Barrier Healers
+        ImGui.PushStyleColor(ImGuiCol.Text, new Vector4(0.3f, 0.8f, 1f, 1)); // Light Blue
+        if (shouldLock && !_barrierHealersSelected) ImGui.BeginDisabled();
+        bool barrierHealersTemp = _barrierHealersSelected;
+        if (ImGui.Checkbox("Barrier Healers", ref barrierHealersTemp))
+        {
+            if (barrierHealersTemp)
+            {
+                ApplyHealerSubcategory(JobMaskConstants.HealerSubcategory.Barrier);
+            }
+            else
+            {
+                ClearAllSelections();
+            }
+        }
+        if (shouldLock && !_barrierHealersSelected) ImGui.EndDisabled();
+        ImGui.PopStyleColor();
     }
 
     private void DrawDPSSubcategories(bool shouldLock)
@@ -568,7 +645,7 @@ public class JobOverrideUI
                         }
                         else
                         {
-                            // No category locked - just add this job
+                            // No category locked just add this job
                             _tempSelectedJobs.Add(job.Mask);
                         }
                     }
@@ -597,6 +674,8 @@ public class JobOverrideUI
         _tempSelectedJobs.Clear();
         _allTanksSelected = false;
         _allHealersSelected = false;
+        _pureHealersSelected = false;
+        _barrierHealersSelected = false;
         _allDPSSelected = false;
         _allMeleeDPSSelected = false;
         _allPhysicalRangedDPSSelected = false;
@@ -630,7 +709,7 @@ public class JobOverrideUI
 
         if (isAllDPS)
         {
-            // All DPS selected - tick all DPS subcategories
+            // All DPS selected
             _allDPSSelected = true;
             _allMeleeDPSSelected = true;
             _allPhysicalRangedDPSSelected = true;
@@ -677,6 +756,29 @@ public class JobOverrideUI
         }
     }
 
+    private void ApplyHealerSubcategory(JobMaskConstants.HealerSubcategory subcategory)
+    {
+        ClearAllSelections();
+        _isAnyLocked = true;
+        _allJobsMode = false;
+
+        if (subcategory == JobMaskConstants.HealerSubcategory.Pure)
+        {
+            _pureHealersSelected = true;
+        }
+        else
+        {
+            _barrierHealersSelected = true;
+        }
+
+        // Add jobs for this subcategory
+        var healers = JobMaskConstants.GetHealersBySubcategory(subcategory);
+        foreach (var job in healers)
+        {
+            _tempSelectedJobs.Add(job.Mask);
+        }
+    }
+
     private ulong GetCurrentSelectionMask()
     {
         // Check for special category selections first
@@ -686,6 +788,10 @@ public class JobOverrideUI
             return JobMaskConstants.AllTanks;
         if (_allHealersSelected)
             return JobMaskConstants.AllHealers;
+        if (_pureHealersSelected)
+            return JobMaskConstants.PureHealers;
+        if (_barrierHealersSelected)
+            return JobMaskConstants.BarrierHealers;
         if (_allDPSSelected)
             return JobMaskConstants.AllDPS;
         if (_allMeleeDPSSelected)

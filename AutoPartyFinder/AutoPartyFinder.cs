@@ -276,7 +276,7 @@ public unsafe class AutoPartyFinder : IDalamudPlugin
             }
         }, RecoveryStepDelayMs * 2);
 
-        // Step 4: Restore job masks for empty slots
+        // Step 4: Smart restore job masks
         _queueService.QueueAction(() =>
         {
             try
@@ -291,8 +291,8 @@ public unsafe class AutoPartyFinder : IDalamudPlugin
 
                 try
                 {
-                    PluginLog.Information("[Recovery] Step 4: Restoring job masks for empty slots");
-                    RestoreJobMasksForEmptySlots(agent);
+                    PluginLog.Information("[Recovery] Step 4: Smart restoring job masks");
+                    _partyFinderService.SmartRestoreJobMasks(agent);
                 }
                 catch (Exception ex)
                 {
@@ -397,63 +397,6 @@ public unsafe class AutoPartyFinder : IDalamudPlugin
 
         PluginLog.Information("[ManualRecovery] Manual party decrease recovery triggered");
         ExecutePartyDecreaseRecovery();
-    }
-
-    // Restore job masks for empty slots only
-    private void RestoreJobMasksForEmptySlots(IntPtr agent)
-    {
-        var slots = new PartyFinderSlots(agent, PluginLog);
-        var currentSlots = slots.GetAllSlots();
-
-        foreach (var currentSlot in currentSlots)
-        {
-            // Only restore if slot is currently empty
-            if (!currentSlot.IsTaken)
-            {
-                ulong maskToSet = 0;
-
-                // First check for override
-                var overrideMask = GetJobMaskOverrideForSlot(currentSlot.Index);
-                if (overrideMask.HasValue)
-                {
-                    maskToSet = overrideMask.Value;
-                    PluginLog.Information($"[Recovery] Using override mask for slot {currentSlot.Index + 1}: 0x{maskToSet:X}");
-                }
-                else
-                {
-                    // Fall back to backup data
-                    var backupData = _partyFinderService.GetLastBackupData();
-                    if (backupData.HasValue)
-                    {
-                        // Find corresponding backup slot
-                        var backupSlot = backupData.Value.SlotInfos.Find(s => s.Index == currentSlot.Index);
-                        if (backupSlot.AllowedJobsMask != 0)
-                        {
-                            maskToSet = backupSlot.AllowedJobsMask;
-                            PluginLog.Information($"[Recovery] Using backup mask for slot {currentSlot.Index + 1}: 0x{maskToSet:X}");
-                        }
-                    }
-                }
-
-                // Apply the mask if we have one
-                if (maskToSet != 0)
-                {
-                    try
-                    {
-                        _partyFinderService.SetAllowedJobsMask(agent, currentSlot.Index, maskToSet);
-                        PluginLog.Information($"[Recovery] Restored job mask for slot {currentSlot.Index + 1}: 0x{maskToSet:X}");
-                    }
-                    catch (Exception ex)
-                    {
-                        PluginLog.Error(ex, $"[Recovery] Failed to restore job mask for slot {currentSlot.Index + 1}");
-                    }
-                }
-            }
-            else
-            {
-                PluginLog.Debug($"[Recovery] Slot {currentSlot.Index + 1} is taken, skipping job mask restoration");
-            }
-        }
     }
 
     private void OnDraw()

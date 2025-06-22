@@ -9,6 +9,7 @@ using AutoPartyFinder.Constants;
 using AutoPartyFinder.Structures;
 using Dalamud.Game;
 using System.Collections.Generic;
+using System.Linq;
 
 namespace AutoPartyFinder.Services;
 
@@ -451,6 +452,144 @@ public unsafe class PartyFinderService
             _pluginLog.Error(ex, "Error calling GetActiveRecruiterContentId");
             return 0;
         }
+    }
+
+    // Smart restore of job masks for empty slots
+    public void SmartRestoreJobMasks(IntPtr agent)
+    {
+        try
+        {
+            var slots = new PartyFinderSlots(agent, _pluginLog);
+            var currentSlots = slots.GetAllSlots();
+
+            // Get backup data or overrides
+            var backupData = GetLastBackupData();
+            var originalMasks = new List<(int Index, ulong Mask)>();
+
+            // Collect original masks from backup or overrides
+            for (int i = 0; i < currentSlots.Count; i++)
+            {
+                ulong maskToUse = 0;
+
+                // First check for override
+                var overrideMask = _plugin.GetJobMaskOverrideForSlot(i);
+                if (overrideMask.HasValue)
+                {
+                    maskToUse = overrideMask.Value;
+                    _pluginLog.Information($"[SmartRestore] Using override mask for slot {i + 1}: 0x{maskToUse:X}");
+                }
+                else if (backupData.HasValue)
+                {
+                    // Fall back to backup data
+                    var backupSlot = backupData.Value.SlotInfos.Find(s => s.Index == i);
+                    if (backupSlot.AllowedJobsMask != 0)
+                    {
+                        maskToUse = backupSlot.AllowedJobsMask;
+                        _pluginLog.Information($"[SmartRestore] Using backup mask for slot {i + 1}: 0x{maskToUse:X}");
+                    }
+                }
+
+                if (maskToUse != 0)
+                {
+                    originalMasks.Add((i, maskToUse));
+                }
+            }
+
+            // Now perform smart restoration
+            var restorationMap = GetSmartRestorationMapping(currentSlots, originalMasks);
+
+            // Apply the restoration
+            foreach (var (slotIndex, mask) in restorationMap)
+            {
+                try
+                {
+                    SetAllowedJobsMask(agent, slotIndex, mask);
+                    _pluginLog.Information($"[SmartRestore] Restored slot {slotIndex + 1} with mask 0x{mask:X}");
+                }
+                catch (Exception ex)
+                {
+                    _pluginLog.Error(ex, $"[SmartRestore] Failed to restore mask for slot {slotIndex + 1}");
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            _pluginLog.Error(ex, "[SmartRestore] Failed to perform smart restore");
+        }
+    }
+
+    // Get smart restoration mapping
+    private Dictionary<int, ulong> GetSmartRestorationMapping(List<PartyFinderSlots.SlotInfo> currentSlots, List<(int Index, ulong Mask)> originalMasks)
+    {
+        var restorationMap = new Dictionary<int, ulong>();
+        var usedOriginalIndices = new HashSet<int>();
+
+        _pluginLog.Information("[SmartRestore] Starting smart restoration mapping");
+        _pluginLog.Information($"[SmartRestore] Current slots: {currentSlots.Count}, Original masks: {originalMasks.Count}");
+
+        // First pass: identify which original masks are satisfied by current occupied slots
+        foreach (var occupiedSlot in currentSlots.Where(s => s.IsTaken))
+        {
+            _pluginLog.Information($"[SmartRestore] Processing occupied slot {occupiedSlot.Index + 1} with job ID {occupiedSlot.JobId}");
+
+            // Find the best matching original mask for this occupied slot
+            var bestMatch = FindBestMatchingOriginalMask(occupiedSlot.JobId, originalMasks, usedOriginalIndices);
+            if (bestMatch != null)
+            {
+                usedOriginalIndices.Add(bestMatch.Value.Index);
+                _pluginLog.Information($"[SmartRestore] Occupied slot {occupiedSlot.Index + 1} matches original slot {bestMatch.Value.Index + 1}");
+            }
+            else
+            {
+                _pluginLog.Warning($"[SmartRestore] No matching original mask found for occupied slot {occupiedSlot.Index + 1}");
+            }
+        }
+
+        // Second pass: restore empty slots with unused original masks
+        var emptySlots = currentSlots.Where(s => !s.IsTaken).OrderBy(s => s.Index).ToList();
+        var unusedOriginalMasks = originalMasks.Where(m => !usedOriginalIndices.Contains(m.Index)).OrderBy(m => m.Index).ToList();
+
+        _pluginLog.Information($"[SmartRestore] Empty slots: {emptySlots.Count}, Unused masks: {unusedOriginalMasks.Count}");
+
+        // Simply assign unused masks to empty slots in order
+        for (int i = 0; i < Math.Min(emptySlots.Count, unusedOriginalMasks.Count); i++)
+        {
+            var emptySlot = emptySlots[i];
+            var unusedMask = unusedOriginalMasks[i];
+
+            restorationMap[emptySlot.Index] = unusedMask.Mask;
+            _pluginLog.Information($"[SmartRestore] Mapping empty slot {emptySlot.Index + 1} to original mask from slot {unusedMask.Index + 1} (0x{unusedMask.Mask:X})");
+        }
+
+        return restorationMap;
+    }
+
+    // Find the best matching original mask for a given job
+    private (int Index, ulong Mask)? FindBestMatchingOriginalMask(byte jobId, List<(int Index, ulong Mask)> originalMasks, HashSet<int> usedIndices)
+    {
+        var jobInfo = JobMaskConstants.GetJobByID(jobId);
+        if (jobInfo == null)
+        {
+            _pluginLog.Warning($"[SmartRestore] Unknown job ID: {jobId}");
+            return null;
+        }
+
+        // Find all original masks that this job satisfies
+        var satisfiedMasks = originalMasks
+            .Where(m => !usedIndices.Contains(m.Index) && JobMaskConstants.JobSatisfiesMask(jobId, m.Mask))
+            .Select(m => (m.Index, m.Mask, Specificity: JobMaskConstants.GetSpecificityScore(m.Mask)))
+            .OrderByDescending(m => m.Specificity) // Most specific first
+            .ThenBy(m => m.Index) // Then by slot order
+            .ToList();
+
+        if (satisfiedMasks.Any())
+        {
+            var best = satisfiedMasks.First();
+            _pluginLog.Information($"[SmartRestore] Job {jobInfo.Value.Name} best matches mask 0x{best.Mask:X} with specificity {best.Specificity}");
+            return (best.Index, best.Mask);
+        }
+
+        return null;
     }
 
     // OpenAddon patching methods
