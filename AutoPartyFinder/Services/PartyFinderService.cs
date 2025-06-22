@@ -454,7 +454,6 @@ public unsafe class PartyFinderService
         }
     }
 
-    // Smart restore of job masks for empty slots
     public void SmartRestoreJobMasks(IntPtr agent)
     {
         try
@@ -462,40 +461,63 @@ public unsafe class PartyFinderService
             var slots = new PartyFinderSlots(agent, _pluginLog);
             var currentSlots = slots.GetAllSlots();
 
-            // Get backup data or overrides
-            var backupData = GetLastBackupData();
+            // Determine whether to use overrides or backup
+            bool useOverrides = _plugin.UseJobMaskOverride && _plugin.PluginConfig.SlotJobMaskOverrides.Count > 0;
+
+            _pluginLog.Information($"[SmartRestore] Using {(useOverrides ? "OVERRIDE" : "BACKUP")} masks for ALL slots");
+
             var originalMasks = new List<(int Index, ulong Mask)>();
 
-            // Collect original masks from backup or overrides
-            for (int i = 0; i < currentSlots.Count; i++)
+            if (useOverrides)
             {
-                ulong maskToUse = 0;
+                // Use ONLY override masks
+                _pluginLog.Information("[SmartRestore] Override mode - will only use configured override masks");
 
-                // First check for override
-                var overrideMask = _plugin.GetJobMaskOverrideForSlot(i);
-                if (overrideMask.HasValue)
+                foreach (var kvp in _plugin.PluginConfig.SlotJobMaskOverrides)
                 {
-                    maskToUse = overrideMask.Value;
-                    _pluginLog.Information($"[SmartRestore] Using override mask for slot {i + 1}: 0x{maskToUse:X}");
-                }
-                else if (backupData.HasValue)
-                {
-                    // Fall back to backup data
-                    var backupSlot = backupData.Value.SlotInfos.Find(s => s.Index == i);
-                    if (backupSlot.AllowedJobsMask != 0)
+                    if (kvp.Key < currentSlots.Count && kvp.Value != 0)
                     {
-                        maskToUse = backupSlot.AllowedJobsMask;
-                        _pluginLog.Information($"[SmartRestore] Using backup mask for slot {i + 1}: 0x{maskToUse:X}");
+                        originalMasks.Add((kvp.Key, kvp.Value));
+                        _pluginLog.Information($"[SmartRestore] Using override mask for slot {kvp.Key + 1}: 0x{kvp.Value:X}");
                     }
                 }
 
-                if (maskToUse != 0)
+                if (originalMasks.Count == 0)
                 {
-                    originalMasks.Add((i, maskToUse));
+                    _pluginLog.Warning("[SmartRestore] No valid override masks found despite override being enabled");
+                    return;
+                }
+            }
+            else
+            {
+                // Use ONLY backup masks
+                var backupData = GetLastBackupData();
+
+                if (!backupData.HasValue)
+                {
+                    _pluginLog.Warning("[SmartRestore] No backup data available");
+                    return;
+                }
+
+                _pluginLog.Information("[SmartRestore] Backup mode - will only use masks from last recruitment");
+
+                foreach (var backupSlot in backupData.Value.SlotInfos)
+                {
+                    if (backupSlot.Index < currentSlots.Count && backupSlot.AllowedJobsMask != 0)
+                    {
+                        originalMasks.Add((backupSlot.Index, backupSlot.AllowedJobsMask));
+                        _pluginLog.Information($"[SmartRestore] Using backup mask for slot {backupSlot.Index + 1}: 0x{backupSlot.AllowedJobsMask:X}");
+                    }
+                }
+
+                if (originalMasks.Count == 0)
+                {
+                    _pluginLog.Warning("[SmartRestore] No valid backup masks found");
+                    return;
                 }
             }
 
-            // Now perform smart restoration
+            // Now perform smart restoration with the chosen mask set
             var restorationMap = GetSmartRestorationMapping(currentSlots, originalMasks);
 
             // Apply the restoration
@@ -511,6 +533,8 @@ public unsafe class PartyFinderService
                     _pluginLog.Error(ex, $"[SmartRestore] Failed to restore mask for slot {slotIndex + 1}");
                 }
             }
+
+            _pluginLog.Information($"[SmartRestore] Restoration complete - applied {restorationMap.Count} masks in {(useOverrides ? "OVERRIDE" : "BACKUP")} mode");
         }
         catch (Exception ex)
         {

@@ -187,9 +187,9 @@ public unsafe class AutoPartyFinder : IDalamudPlugin
     }
 
     // Execute restore party mask routine
-    private void ExecutePartyDecreaseRecovery()
+    private void ExecutePartyLeaverAdjustment()
     {
-        PluginLog.Information("[AutoRenewal] Executing party decrease recovery sequence");
+        PluginLog.Information("[AutoRenewal] Executing party leaver recovery sequence");
         PluginLog.Information($"[AutoRenewal] Using {RecoveryStepDelayMs}ms delay between steps");
         _isRenewalInProgress = true;
 
@@ -396,7 +396,7 @@ public unsafe class AutoPartyFinder : IDalamudPlugin
         }
 
         PluginLog.Information("[ManualRecovery] Manual party decrease recovery triggered");
-        ExecutePartyDecreaseRecovery();
+        ExecutePartyLeaverAdjustment();
     }
 
     private void OnDraw()
@@ -492,7 +492,7 @@ public unsafe class AutoPartyFinder : IDalamudPlugin
                 PluginLog.Information($"[AutoRenewal] Debounce period passed, executing recovery");
                 _pendingPartyRecovery = false;
                 _partyDecreaseDetectedTime = DateTime.MinValue;
-                ExecutePartyDecreaseRecovery();
+                ExecutePartyLeaverAdjustment();
                 // Don't continue with normal renewal check
                 return;
             }
