@@ -38,8 +38,15 @@ https://raw.githubusercontent.com/Paparogue/PaparogueRepo/refs/heads/main/repo.j
    - Restores job slots when party members leave
    - You can close the Party Finder window - recruitment continues
    - Check the "Status" tab anytime to see party information
+     
 
-![AutoPartyFinder Config](https://raw.github.com/Paparogue/AutoPartyFinder/2304853fe6efff64fcaa4b2e02af6691c65ec2d3/config.png)
+![AutoPartyFinder Config1](https://raw.github.com/Paparogue/AutoPartyFinder/595d3141615b94c9a0f0a370365dd85fa689af28/Images/UI_1.png)
+
+![AutoPartyFinder Config2](https://raw.github.com/Paparogue/AutoPartyFinder/595d3141615b94c9a0f0a370365dd85fa689af28/Images/UI_2.png)
+
+![AutoPartyFinder Config3](https://raw.github.com/Paparogue/AutoPartyFinder/595d3141615b94c9a0f0a370365dd85fa689af28/Images/UI_3.png)
+
+![AutoPartyFinder Config4](https://raw.github.com/Paparogue/AutoPartyFinder/595d3141615b94c9a0f0a370365dd85fa689af28/Images/UI_4.png)
 
 ## Features
 
