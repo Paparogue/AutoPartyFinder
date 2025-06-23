@@ -21,17 +21,17 @@ https://raw.githubusercontent.com/Paparogue/PaparogueRepo/refs/heads/main/repo.j
 
 ## How to Use
 
-1. **Set up your Party Finder listing as normal**
-   - Open Party Finder and configure your recruitment (duty, description, job requirements)
-   - Click "Recruit Members" to start - this saves your settings automatically
-
-2. **Open AutoPartyFinder**
+1. **Open AutoPartyFinder**
    - Type `/apf` in chat to open the plugin window
    - Go to the "Auto-Renewal" tab
 
-3. **Enable Auto-Renewal**
+2. **Enable Auto-Renewal**
    - Click "ENABLE AUTO-RENEWAL" button
    - The plugin now monitors your listing and prevents the 60-minute timeout
+  
+3. **Set up your Party Finder listing as normal**
+   - Open Party Finder and configure your recruitment (duty, description, job requirements)
+   - Click "Recruit Members" to start - this saves your settings automatically
 
 4. **That's it!** The plugin runs in the background:
    - Automatically renews your listing every 55 minutes
