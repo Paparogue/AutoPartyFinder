@@ -1,53 +1,67 @@
-# ALPHA RELEASE - CURRENTLY ONLY FOR TESTING PURPOSE
+# AutoPartyFinder
 ![AutoPartyFinder Icon](https://raw.github.com/Paparogue/AutoPartyFinder/99fbcb558c4938d80dd29b177fed287c2aa7ef4a/apf.png)
 
-A Party Finder automation plugin that maintains your recruitment listing and recovers from party changes in FFXIV.
+Automates Party Finder recruitment in FFXIV by preventing listing expiration and recovering from party changes.
+
+## ⚠️ ALPHA VERSION - TESTING PHASE
+This plugin is currently in early development. Expect bugs, crashes, and unexpected behavior. Use at your own risk and please report any issues.
+
+## What It Does
+
+- **Prevents 60-minute timeout** - Automatically renews your Party Finder listing every 55 minutes
+- **Recovers from leavers** - Restores job restrictions when party members leave
+- **Customizable job slots** - Override which jobs can join each party slot
 
 ## Installation
-Add the following URL to your third-party repository list:
+
+Add this URL to your third-party repository list:
 ```
 https://raw.githubusercontent.com/Paparogue/PaparogueRepo/refs/heads/main/repo.json
 ```
 
-## Configuration Guide
+## How to Use
+
+1. **Set up your Party Finder listing as normal**
+   - Open Party Finder and configure your recruitment (duty, description, job requirements)
+   - Click "Recruit Members" to start - this saves your settings automatically
+
+2. **Open AutoPartyFinder**
+   - Type `/apf` in chat to open the plugin window
+   - Go to the "Auto-Renewal" tab
+
+3. **Enable Auto-Renewal**
+   - Click "ENABLE AUTO-RENEWAL" button
+   - The plugin now monitors your listing and prevents the 60-minute timeout
+
+4. **That's it!** The plugin runs in the background:
+   - Automatically renews your listing every 55 minutes
+   - Restores job slots when party members leave
+   - You can close the Party Finder window - recruitment continues
+   - Check the "Status" tab anytime to see party information
+
 ![AutoPartyFinder Config](https://raw.github.com/Paparogue/AutoPartyFinder/2304853fe6efff64fcaa4b2e02af6691c65ec2d3/config.png)
 
-### Auto-Renewal Feature
-- Prevents the 60-minute expiration timeout
-- Maintains all recruitment settings and party slots
+## Features
 
-#### Auto-Renewal Controls
-- **Enable/Disable Button**: Toggle automatic renewal on/off
-- **Status Indicator**: Shows if auto-renewal is currently active
-- **Progress Bar**: Visual countdown until next renewal (0-5 minutes)
-- **Timer Display**: Shows minutes elapsed since last recruitment
+### Auto-Renewal
+Keeps your Party Finder listing active indefinitely by refreshing it every 55 minutes, just before the 60-minute expiration.
 
-### Party Size Tracking
-- **Current Party Size**: Real-time party member count
-- **Last Known Size**: Previous party size for comparison
-- **Status Indicator**: Shows if party size is stable or changing
-- **Recovery Timer**: 10-second countdown when party size decreases
+### Party Recovery
+When someone leaves your party:
+- Waits 10 seconds (to avoid multiple triggers)
+- Automatically restores the job restrictions for empty slots
+- Continues recruiting without manual intervention
 
-## How It Works
+### Job Override
+Change job requirements without restarting recruitment:
+- When you start recruiting, the plugin saves your original job settings
+- Use Job Override to modify requirements mid-recruitment (e.g., need a different healer type)
+- **Important**: This overrides your saved settings - disable it to return to original requirements
+- Enable in the "Job Override" tab and configure per slot
+- Supports role groups (All Tanks, Pure Healers, Barrier Healers, etc.)
 
-### Automatic Renewal Process
-1. Monitors your active Party Finder listing
-2. Tracks time since recruitment started
-3. After 55 minutes, automatically:
-   - Leaves current duty recruitment
-   - Immediately restarts recruitment
-   - Preserves all settings and slots 
+## Requirements
 
-### Party Recovery Process
-1. Detects when party members leave
-2. Waits 10 seconds to avoid multiple triggers
-3. Executes recovery sequence:
-   - Temporarily disables UI interactions
-   - Opens recruitment window
-   - Restores job restrictions for empty slots
-   - Resumes active recruitment
-
-## Important Notes
-- **Party Leader Required**: You must be the party leader or solo to use auto-renewal
-- **Keep Plugin Active**: Must remain running while recruiting
-- **Debug Mode**: Only enable for troubleshooting
+- You must be the **party leader** or **solo**
+- Keep the plugin running while recruiting
+- Party Finder window can be closed - the plugin works in the background
