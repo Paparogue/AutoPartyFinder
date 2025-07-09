@@ -16,13 +16,13 @@ public unsafe class AutoPartyFinder : IDalamudPlugin
 
     private readonly PartyFinderService _partyFinderService;
     private readonly FrameworkQueueService _queueService;
+    private readonly TestFunctions _testFunctions;
 
     private bool _drawConfigWindow;
 
     private bool _autoRenewalEnabled = false;
     private DateTime _lastRecruitmentTime = DateTime.MinValue;
     private DateTime _lastOnDrawCheck = DateTime.MinValue;
-    private DateTime _lastPartySizeCheck = DateTime.MinValue;
     private bool _isRenewalInProgress = false;
 
     // Party size tracking variables
@@ -33,7 +33,6 @@ public unsafe class AutoPartyFinder : IDalamudPlugin
     // Configurable renewal interval
     public const int RENEWAL_INTERVAL_MINUTES = 55;  // Renews party listing every X minutes
     private const int ONDRAW_CHECK_INTERVAL_MS = 500;
-    private const int PARTY_SIZE_CHECK_INTERVAL_MS = 100;
     private const int RECRUITMENT_GRACE_PERIOD_SECONDS = 1; // Grace period after starting recruitment
     private const int PARTY_DECREASE_DEBOUNCE_SECONDS = 10; // Wait time after party size decrease
 
@@ -47,6 +46,7 @@ public unsafe class AutoPartyFinder : IDalamudPlugin
     public IPartyList PartyList { get; init; }
 
     public PartyFinderService GetPartyFinderService() => _partyFinderService;
+    public TestFunctions GetTestFunctions() => _testFunctions;
 
     public bool IsAutoRenewalEnabled => _autoRenewalEnabled;
     public DateTime LastRecruitmentTime => _lastRecruitmentTime;
@@ -75,6 +75,7 @@ public unsafe class AutoPartyFinder : IDalamudPlugin
 
         _partyFinderService = new PartyFinderService(sigScanner, pluginLog, gameInteropProvider, this);
         _queueService = new FrameworkQueueService(framework, pluginLog);
+        _testFunctions = new TestFunctions(this, _partyFinderService, _queueService, pluginLog);
 
         SetupCommands();
 
@@ -138,6 +139,28 @@ public unsafe class AutoPartyFinder : IDalamudPlugin
             _lastKnownPartySize = _partyFinderService.GetCurrentPartySize();
             PluginLog.Information($"[AutoRenewal] Initial party size: {_lastKnownPartySize}");
         }
+    }
+
+    // Called by PartyFinderService when party member change is detected
+    public void OnPartyMemberChange(int previousSize, int newSize)
+    {
+        // Only process if we're actively tracking
+        if (_lastKnownPartySize < 0 || !ClientState.IsLoggedIn || !_autoRenewalEnabled || _isRenewalInProgress)
+            return;
+
+        PluginLog.Information($"[AutoRenewal] Party member change detected: {previousSize} -> {newSize}");
+
+        // Check for party size decrease
+        if (newSize < previousSize)
+        {
+            _partyDecreaseDetectedTime = DateTime.UtcNow;
+            _pendingPartyRecovery = true;
+            PluginLog.Information($"[AutoRenewal] Party size decreased from {previousSize} to {newSize}");
+            PluginLog.Information($"[AutoRenewal] Starting {PARTY_DECREASE_DEBOUNCE_SECONDS} second debounce timer");
+        }
+
+        // Update last known party size
+        _lastKnownPartySize = newSize;
     }
 
     // Reset the recruitment timer
@@ -403,32 +426,7 @@ public unsafe class AutoPartyFinder : IDalamudPlugin
     {
         var now = DateTime.UtcNow;
 
-        // PART 1: Party size monitoring
-        if ((now - _lastPartySizeCheck).TotalMilliseconds >= PARTY_SIZE_CHECK_INTERVAL_MS)
-        {
-            _lastPartySizeCheck = now;
-
-            // Only check party size if we're tracking
-            if (_lastKnownPartySize >= 0 && ClientState.IsLoggedIn && _autoRenewalEnabled && !_isRenewalInProgress)
-            {
-                int currentPartySize = _partyFinderService.GetCurrentPartySize();
-
-                // Check for party size decrease
-                if (currentPartySize < _lastKnownPartySize)
-                {
-                    // Party size decreased
-                    _partyDecreaseDetectedTime = now;
-                    _pendingPartyRecovery = true;
-                    PluginLog.Information($"[AutoRenewal] Party size decreased from {_lastKnownPartySize} to {currentPartySize}");
-                    PluginLog.Information($"[AutoRenewal] Starting {PARTY_DECREASE_DEBOUNCE_SECONDS} second debounce timer");
-                }
-
-                // Always update last known party size
-                _lastKnownPartySize = currentPartySize;
-            }
-        }
-
-        // PART 2: All other renewal logic
+        // Check renewal timer interval
         if ((now - _lastOnDrawCheck).TotalMilliseconds < ONDRAW_CHECK_INTERVAL_MS)
             return;
 
@@ -562,222 +560,5 @@ public unsafe class AutoPartyFinder : IDalamudPlugin
                 }
             }, RecoveryStepDelayMs * 10);
         }
-    }
-
-    // OpenAddon patch tests
-    public void TestDisableOpenAddon()
-    {
-        _queueService.QueueAction(() =>
-        {
-            try
-            {
-                PluginLog.Information("Testing DisableOpenAddon");
-                _partyFinderService.DisableOpenAddon();
-            }
-            catch (Exception ex)
-            {
-                PluginLog.Error(ex, "Failed to disable OpenAddon");
-            }
-        });
-    }
-
-    public void TestEnableOpenAddon()
-    {
-        _queueService.QueueAction(() =>
-        {
-            try
-            {
-                PluginLog.Information("Testing EnableOpenAddon");
-                _partyFinderService.EnableOpenAddon();
-            }
-            catch (Exception ex)
-            {
-                PluginLog.Error(ex, "Failed to enable OpenAddon");
-            }
-        });
-    }
-
-    public void TestOpenRecruitmentWindow()
-    {
-        _queueService.QueueAction(() =>
-        {
-            try
-            {
-                var agent = _partyFinderService.GetLookingForGroupAgent();
-                if (agent == IntPtr.Zero)
-                {
-                    PluginLog.Error("LookingForGroup agent is null");
-                    return;
-                }
-
-                PluginLog.Information($"Calling OpenRecruitmentWindow with agent at 0x{agent.ToInt64():X}");
-                _partyFinderService.OpenRecruitmentWindow(agent, 0);
-                PluginLog.Information("OpenRecruitmentWindow called successfully");
-            }
-            catch (Exception ex)
-            {
-                PluginLog.Error(ex, "Failed to call OpenRecruitmentWindow");
-            }
-        });
-    }
-
-    public void TestStartRecruiting()
-    {
-        _queueService.QueueAction(() =>
-        {
-            try
-            {
-                var agent = _partyFinderService.GetLookingForGroupAgent();
-                if (agent == IntPtr.Zero)
-                {
-                    PluginLog.Error("LookingForGroup agent is null");
-                    return;
-                }
-
-                PluginLog.Information($"Calling StartRecruiting with agent at 0x{agent.ToInt64():X}");
-                var result = _partyFinderService.StartRecruiting(agent);
-                PluginLog.Information($"StartRecruiting returned: {result}");
-            }
-            catch (Exception ex)
-            {
-                PluginLog.Error(ex, "Failed to call StartRecruiting");
-            }
-        });
-    }
-
-    public void TestLeaveDuty()
-    {
-        _queueService.QueueAction(() =>
-        {
-            try
-            {
-                var agent = _partyFinderService.GetLookingForGroupAgent();
-                if (agent == IntPtr.Zero)
-                {
-                    PluginLog.Error("LookingForGroup agent is null");
-                    return;
-                }
-
-                PluginLog.Information($"Calling LeaveDuty with agent at 0x{agent.ToInt64():X}");
-                _partyFinderService.LeaveDuty(agent);
-                PluginLog.Information("LeaveDuty called successfully");
-            }
-            catch (Exception ex)
-            {
-                PluginLog.Error(ex, "Failed to call LeaveDuty");
-            }
-        });
-    }
-
-    public void TestRefreshListings()
-    {
-        _queueService.QueueAction(() =>
-        {
-            try
-            {
-                var agent = _partyFinderService.GetLookingForGroupAgent();
-                if (agent == IntPtr.Zero)
-                {
-                    PluginLog.Error("LookingForGroup agent is null");
-                    return;
-                }
-
-                PluginLog.Information($"Calling RefreshListings with agent at 0x{agent.ToInt64():X} and command ID 0xE");
-                var result = _partyFinderService.RefreshListings(agent, 0xE);
-                PluginLog.Information($"RefreshListings returned: {result}");
-            }
-            catch (Exception ex)
-            {
-                PluginLog.Error(ex, "Failed to call RefreshListings");
-            }
-        });
-    }
-
-    public void TestIsLocalPlayerPartyLeader()
-    {
-        _queueService.QueueAction(() =>
-        {
-            try
-            {
-                PluginLog.Information("Testing IsLocalPlayerPartyLeader");
-                bool isLeader = _partyFinderService.IsLocalPlayerPartyLeader();
-                PluginLog.Information($"IsLocalPlayerPartyLeader returned: {isLeader}");
-            }
-            catch (Exception ex)
-            {
-                PluginLog.Error(ex, "Failed to test IsLocalPlayerPartyLeader");
-            }
-        });
-    }
-
-    public void TestIsLocalPlayerInParty()
-    {
-        _queueService.QueueAction(() =>
-        {
-            try
-            {
-                PluginLog.Information("Testing IsLocalPlayerInParty");
-                bool inParty = _partyFinderService.IsLocalPlayerInParty();
-                PluginLog.Information($"IsLocalPlayerInParty returned: {inParty}");
-            }
-            catch (Exception ex)
-            {
-                PluginLog.Error(ex, "Failed to test IsLocalPlayerInParty");
-            }
-        });
-    }
-
-    public void TestGetActiveRecruiterContentId()
-    {
-        _queueService.QueueAction(() =>
-        {
-            try
-            {
-                PluginLog.Information("Testing GetActiveRecruiterContentId");
-                ulong contentId = _partyFinderService.GetActiveRecruiterContentId();
-                PluginLog.Information($"GetActiveRecruiterContentId returned: 0x{contentId:X} ({contentId})");
-
-                if (contentId != 0)
-                {
-                    PluginLog.Information("Someone in the party has 'Looking for Party' status");
-                }
-                else
-                {
-                    PluginLog.Information("No one in the party has 'Looking for Party' status");
-                }
-            }
-            catch (Exception ex)
-            {
-                PluginLog.Error(ex, "Failed to test GetActiveRecruiterContentId");
-            }
-        });
-    }
-
-    public void TestPartyFinderSlots()
-    {
-        _queueService.QueueAction(() =>
-        {
-            try
-            {
-                var agent = _partyFinderService.GetLookingForGroupAgent();
-                if (agent == IntPtr.Zero)
-                {
-                    PluginLog.Error("LookingForGroup agent is null");
-                    return;
-                }
-
-                PluginLog.Information($"Testing PartyFinderSlots with agent at 0x{agent.ToInt64():X}");
-                var slots = new PartyFinderSlots(agent, PluginLog);
-
-                slots.CheckAllSlots();
-
-                int availableSlots = slots.GetAvailableSlotCount();
-                PluginLog.Information($"Available slots: {availableSlots}");
-            }
-            catch (Exception ex)
-            {
-                PluginLog.Error(ex, "Failed to test PartyFinderSlots");
-            }
-        });
     }
 }

@@ -8,11 +8,13 @@ public class DebugUI
 {
     private readonly AutoPartyFinder _plugin;
     private readonly AutoPartyFinderConfig _config;
+    private readonly TestFunctions _testFunctions;
 
     public DebugUI(AutoPartyFinder plugin, AutoPartyFinderConfig config)
     {
         _plugin = plugin;
         _config = config;
+        _testFunctions = plugin.GetTestFunctions();
     }
 
     public void Draw()
@@ -38,12 +40,12 @@ public class DebugUI
         ImGui.Text("OpenAddon Patch Controls:");
         if (ImGui.Button("Disable OpenAddon", new Vector2(140, 30)))
         {
-            _plugin.TestDisableOpenAddon();
+            _testFunctions.TestDisableOpenAddon();
         }
         ImGui.SameLine();
         if (ImGui.Button("Enable OpenAddon", new Vector2(140, 30)))
         {
-            _plugin.TestEnableOpenAddon();
+            _testFunctions.TestEnableOpenAddon();
         }
         if (ImGui.IsItemHovered())
         {
@@ -55,7 +57,7 @@ public class DebugUI
         ImGui.Text("Window Operations:");
         if (ImGui.Button("Open Recruitment Window", new Vector2(200, 30)))
         {
-            _plugin.TestOpenRecruitmentWindow();
+            _testFunctions.TestOpenRecruitmentWindow();
         }
         if (ImGui.IsItemHovered())
         {
@@ -67,7 +69,7 @@ public class DebugUI
         ImGui.Text("Recruitment Actions:");
         if (ImGui.Button("Start Recruiting", new Vector2(200, 30)))
         {
-            _plugin.TestStartRecruiting();
+            _testFunctions.TestStartRecruiting();
         }
         if (ImGui.IsItemHovered())
         {
@@ -78,7 +80,7 @@ public class DebugUI
 
         if (ImGui.Button("Leave Duty", new Vector2(200, 30)))
         {
-            _plugin.TestLeaveDuty();
+            _testFunctions.TestLeaveDuty();
         }
         if (ImGui.IsItemHovered())
         {
@@ -89,7 +91,7 @@ public class DebugUI
 
         if (ImGui.Button("Refresh Listings", new Vector2(200, 30)))
         {
-            _plugin.TestRefreshListings();
+            _testFunctions.TestRefreshListings();
         }
         if (ImGui.IsItemHovered())
         {
@@ -101,7 +103,7 @@ public class DebugUI
         ImGui.Text("Status Check Functions:");
         if (ImGui.Button("Test Party Leader Status", new Vector2(200, 30)))
         {
-            _plugin.TestIsLocalPlayerPartyLeader();
+            _testFunctions.TestIsLocalPlayerPartyLeader();
         }
         if (ImGui.IsItemHovered())
         {
@@ -110,7 +112,7 @@ public class DebugUI
 
         if (ImGui.Button("Test In Party Status", new Vector2(200, 30)))
         {
-            _plugin.TestIsLocalPlayerInParty();
+            _testFunctions.TestIsLocalPlayerInParty();
         }
         if (ImGui.IsItemHovered())
         {
@@ -119,11 +121,20 @@ public class DebugUI
 
         if (ImGui.Button("Test Active Recruiter", new Vector2(200, 30)))
         {
-            _plugin.TestGetActiveRecruiterContentId();
+            _testFunctions.TestGetActiveRecruiterContentId();
         }
         if (ImGui.IsItemHovered())
         {
             ImGui.SetTooltip("Get the content ID of the player with 'Looking for Party' status");
+        }
+
+        if (ImGui.Button("Test Party Finder Slots", new Vector2(200, 30)))
+        {
+            _testFunctions.TestPartyFinderSlots();
+        }
+        if (ImGui.IsItemHovered())
+        {
+            ImGui.SetTooltip("Check all party finder slot information");
         }
     }
 

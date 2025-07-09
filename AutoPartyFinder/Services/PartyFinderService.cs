@@ -22,6 +22,9 @@ public unsafe class PartyFinderService
     // Hook for StartRecruiting
     private Hook<StartRecruitingDelegate>? _startRecruitingHook;
 
+    // Hook for PartyMemberChange
+    private Hook<PartyMemberChangeDelegate>? _partyMemberChangeHook;
+
     // Store the detour delegate to call it manually
     private StartRecruitingDelegate? _startRecruitingDetourDelegate;
 
@@ -77,6 +80,24 @@ public unsafe class PartyFinderService
         catch (Exception ex)
         {
             _pluginLog.Error(ex, "Failed to hook StartRecruiting signature");
+        }
+
+        // Hook PartyMemberChange
+        try
+        {
+            var partyMemberChangePtr = sigScanner.ScanText("E8 ?? ?? ?? ?? E9 ?? ?? ?? ?? 48 8B 07 48 8B CF FF 90 ?? ?? ?? ?? 45 8B C6");
+            _pluginLog.Information($"PartyMemberChange function found at 0x{partyMemberChangePtr.ToInt64():X}");
+
+            _partyMemberChangeHook = _gameInteropProvider.HookFromAddress<PartyMemberChangeDelegate>(
+                partyMemberChangePtr,
+                PartyMemberChangeDetour);
+
+            _partyMemberChangeHook.Enable();
+            _pluginLog.Information("PartyMemberChange hook enabled successfully");
+        }
+        catch (Exception ex)
+        {
+            _pluginLog.Error(ex, "Failed to hook PartyMemberChange signature");
         }
 
         try
@@ -174,6 +195,43 @@ public unsafe class PartyFinderService
         catch (Exception ex)
         {
             _pluginLog.Error(ex, "Failed to find InfoProxyCrossRealm_GetPartyMemberCount signature");
+        }
+    }
+
+    // Detour function for PartyMemberChange
+    private void PartyMemberChangeDetour(IntPtr a1, IntPtr a2, IntPtr a3, IntPtr a4)
+    {
+        try
+        {
+            // Get party size before the change
+            int partySizeBefore = GetCurrentPartySize();
+            _pluginLog.Debug($"[HOOK] PartyMemberChange - Size before: {partySizeBefore}");
+
+            // Call the original function
+            _partyMemberChangeHook!.Original(a1, a2, a3, a4);
+
+            // Get party size after the change
+            int partySizeAfter = GetCurrentPartySize();
+            _pluginLog.Debug($"[HOOK] PartyMemberChange - Size after: {partySizeAfter}");
+
+            // Notify plugin if there was a change
+            if (partySizeBefore != partySizeAfter)
+            {
+                _plugin.OnPartyMemberChange(partySizeBefore, partySizeAfter);
+            }
+        }
+        catch (Exception ex)
+        {
+            _pluginLog.Error(ex, "[HOOK] Exception in PartyMemberChangeDetour");
+            // If we can't handle it, at least call the original
+            try
+            {
+                _partyMemberChangeHook!.Original(a1, a2, a3, a4);
+            }
+            catch
+            {
+                // Last resort - can't do anything
+            }
         }
     }
 
@@ -662,13 +720,21 @@ public unsafe class PartyFinderService
 
     public void Dispose()
     {
-        // Disable and dispose of the hook
+        // Disable and dispose of the hooks
         if (_startRecruitingHook != null)
         {
             _pluginLog.Information("Disabling and disposing StartRecruiting hook");
             _startRecruitingHook.Disable();
             _startRecruitingHook.Dispose();
             _startRecruitingHook = null;
+        }
+
+        if (_partyMemberChangeHook != null)
+        {
+            _pluginLog.Information("Disabling and disposing PartyMemberChange hook");
+            _partyMemberChangeHook.Disable();
+            _partyMemberChangeHook.Dispose();
+            _partyMemberChangeHook = null;
         }
 
         // Clear the detour delegate reference
