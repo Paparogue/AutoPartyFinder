@@ -25,7 +25,7 @@ public class AutoPartyFinderConfig : IPluginConfiguration
         if (_plugin != null)
         {
             _plugin.RecoveryStepDelayMs = RecoveryStepDelayMs;
-            _configWindow = new ConfigWindow(_plugin, this);
+            // Don't create ConfigWindow here - create it on demand in DrawConfigUI
         }
     }
 
@@ -40,6 +40,11 @@ public class AutoPartyFinderConfig : IPluginConfiguration
 
     public bool DrawConfigUI()
     {
+        // Create ConfigWindow on demand if it doesn't exist
+        if (_configWindow == null && _plugin != null)
+        {
+            _configWindow = new ConfigWindow(_plugin, this);
+        }
         return _configWindow?.Draw() ?? false;
     }
 }
