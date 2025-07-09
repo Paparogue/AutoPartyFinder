@@ -10,6 +10,8 @@ using AutoPartyFinder.Structures;
 using Dalamud.Game;
 using System.Collections.Generic;
 using System.Linq;
+using FFXIVClientStructs.FFXIV.Client.System.Framework;
+using FFXIVClientStructs.FFXIV.Client.UI.Info;
 
 namespace AutoPartyFinder.Services;
 
@@ -38,6 +40,8 @@ public unsafe class PartyFinderService
     private IsLocalPlayerInPartyDelegate? _isLocalPlayerInParty;
     private GetActiveRecruiterContentIdDelegate? _getActiveRecruiterContentId;
     private CrossRealmGetPartyMemberCountDelegate? _getCrossRealmPartyMemberCount;
+    private CrossRealmFunc1Delegate? _crossRealmFunc1;
+    private CrossRealmFunc2Delegate? _crossRealmFunc2;
 
     private IntPtr _openAddonPatchAddress = IntPtr.Zero;
     private byte[]? _originalOpenAddonBytes;
@@ -196,6 +200,75 @@ public unsafe class PartyFinderService
         {
             _pluginLog.Error(ex, "Failed to find InfoProxyCrossRealm_GetPartyMemberCount signature");
         }
+
+        // New CrossRealm functions
+        try
+        {
+            var crossRealmFunc1Ptr = sigScanner.ScanText("E8 ?? ?? ?? ?? 49 8B CE 48 8B 5C 24 ?? 48 8B 6C 24 ?? 48 8B 74 24 ?? 48 83 C4 ?? 41 5F 41 5E 41 5D 41 5C 5F E9 ?? ?? ?? ?? CC CC CC CC CC CC CC CC 48 89 5C 24");
+            _crossRealmFunc1 = Marshal.GetDelegateForFunctionPointer<CrossRealmFunc1Delegate>(crossRealmFunc1Ptr);
+            _pluginLog.Information($"CrossRealmFunc1 function found at 0x{crossRealmFunc1Ptr.ToInt64():X}");
+        }
+        catch (Exception ex)
+        {
+            _pluginLog.Error(ex, "Failed to find CrossRealmFunc1 signature");
+        }
+
+        try
+        {
+            var crossRealmFunc2Ptr = sigScanner.ScanText("E8 ?? ?? ?? ?? 48 8B 5C 24 ?? 48 8B 6C 24 ?? 48 8B 74 24 ?? 48 83 C4 ?? 41 5F 41 5E 5F C3 CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC 40 57");
+            _crossRealmFunc2 = Marshal.GetDelegateForFunctionPointer<CrossRealmFunc2Delegate>(crossRealmFunc2Ptr);
+            _pluginLog.Information($"CrossRealmFunc2 function found at 0x{crossRealmFunc2Ptr.ToInt64():X}");
+        }
+        catch (Exception ex)
+        {
+            _pluginLog.Error(ex, "Failed to find CrossRealmFunc2 signature");
+        }
+    }
+
+    // Get CrossRealm proxy
+    public IntPtr GetCrossRealmProxy()
+    {
+        var framework = Framework.Instance();
+        if (framework == null) return IntPtr.Zero;
+
+        var uiModule = framework->GetUIModule();
+        if (uiModule == null) return IntPtr.Zero;
+
+        var infoModule = uiModule->GetInfoModule();
+        if (infoModule == null) return IntPtr.Zero;
+
+        // InfoProxyId.CrossRealmParty is typically 17 (0x11)
+        var crossRealmProxy = (IntPtr)infoModule->GetInfoProxyById(InfoProxyId.CrossRealmParty);
+
+        return crossRealmProxy;
+    }
+
+    // Call CrossRealm function 1
+    public void CallCrossRealmFunc1(IntPtr agentPtr)
+    {
+        if (_crossRealmFunc1 == null)
+            throw new InvalidOperationException("CrossRealmFunc1 function pointer is null");
+
+        var crossRealmProxy = GetCrossRealmProxy();
+        if (crossRealmProxy == IntPtr.Zero)
+            throw new InvalidOperationException("CrossRealmProxy is null");
+
+        var dataPtr = agentPtr + 0x2318;
+        _crossRealmFunc1(crossRealmProxy, dataPtr);
+    }
+
+    // Call CrossRealm function 2
+    public void CallCrossRealmFunc2(IntPtr agentPtr)
+    {
+        if (_crossRealmFunc2 == null)
+            throw new InvalidOperationException("CrossRealmFunc2 function pointer is null");
+
+        var crossRealmProxy = GetCrossRealmProxy();
+        if (crossRealmProxy == IntPtr.Zero)
+            throw new InvalidOperationException("CrossRealmProxy is null");
+
+        var dataPtr = agentPtr + 0x2710;
+        _crossRealmFunc2(crossRealmProxy, dataPtr);
     }
 
     // Detour function for PartyMemberChange

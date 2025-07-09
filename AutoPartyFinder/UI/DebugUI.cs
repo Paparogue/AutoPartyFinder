@@ -136,6 +136,27 @@ public class DebugUI
         {
             ImGui.SetTooltip("Check all party finder slot information");
         }
+
+        ImGui.Spacing();
+
+        ImGui.Text("CrossRealm Functions:");
+        if (ImGui.Button("Test CrossRealm Func 1", new Vector2(200, 30)))
+        {
+            _testFunctions.TestCrossRealmFunc1();
+        }
+        if (ImGui.IsItemHovered())
+        {
+            ImGui.SetTooltip("Calls CrossRealmFunc1(crossRealmProxy, agentPtr + 0x2318)");
+        }
+
+        if (ImGui.Button("Test CrossRealm Func 2", new Vector2(200, 30)))
+        {
+            _testFunctions.TestCrossRealmFunc2();
+        }
+        if (ImGui.IsItemHovered())
+        {
+            ImGui.SetTooltip("Calls CrossRealmFunc2(crossRealmProxy, agentPtr + 0x2710)");
+        }
     }
 
     private void DrawRecoveryControls()
