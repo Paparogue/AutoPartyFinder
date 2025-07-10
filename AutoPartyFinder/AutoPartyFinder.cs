@@ -27,14 +27,11 @@ public unsafe class AutoPartyFinder : IDalamudPlugin
 
     // Party size tracking variables
     private int _lastKnownPartySize = -1;
-    private DateTime _partyDecreaseDetectedTime = DateTime.MinValue;
-    private bool _pendingPartyRecovery = false;
 
     // Configurable renewal interval
     public const int RENEWAL_INTERVAL_MINUTES = 55;  // Renews party listing every X minutes
     private const int ONDRAW_CHECK_INTERVAL_MS = 500;
     private const int RECRUITMENT_GRACE_PERIOD_SECONDS = 1; // Grace period after starting recruitment
-    private const int PARTY_DECREASE_DEBOUNCE_SECONDS = 10; // Wait time after party size decrease
 
     public int RecoveryStepDelayMs { get; set; } = 100;
     public bool UseJobMaskOverride => PluginConfig?.UseJobMaskOverride ?? false;
@@ -51,8 +48,6 @@ public unsafe class AutoPartyFinder : IDalamudPlugin
     public bool IsAutoRenewalEnabled => _autoRenewalEnabled;
     public DateTime LastRecruitmentTime => _lastRecruitmentTime;
     public int LastKnownPartySize => _lastKnownPartySize;
-    public bool PendingPartyRecovery => _pendingPartyRecovery;
-    public DateTime PartyDecreaseDetectedTime => _partyDecreaseDetectedTime;
 
     public AutoPartyFinder(
         IDalamudPluginInterface pluginInterface,
@@ -150,17 +145,41 @@ public unsafe class AutoPartyFinder : IDalamudPlugin
 
         PluginLog.Information($"[AutoRenewal] Party member change detected: {previousSize} -> {newSize}");
 
-        // Check for party size decrease
-        if (newSize < previousSize)
-        {
-            _partyDecreaseDetectedTime = DateTime.UtcNow;
-            _pendingPartyRecovery = true;
-            PluginLog.Information($"[AutoRenewal] Party size decreased from {previousSize} to {newSize}");
-            PluginLog.Information($"[AutoRenewal] Starting {PARTY_DECREASE_DEBOUNCE_SECONDS} second debounce timer");
-        }
-
         // Update last known party size
         _lastKnownPartySize = newSize;
+
+        // Check if someone joined
+        if (newSize > previousSize)
+        {
+            PluginLog.Information($"[AutoRenewal] Party member joined - updating PF listings");
+
+            _queueService.QueueAction(() =>
+            {
+                try
+                {
+                    var agent = _partyFinderService.GetLookingForGroupAgent();
+                    if (agent == IntPtr.Zero)
+                    {
+                        PluginLog.Error("[AutoRenewal] LookingForGroup agent is null during member join");
+                        return;
+                    }
+
+                    // Update party finder listings to get accurate slot information
+                    _partyFinderService.UpdatePartyFinderListings(agent, 1);
+                    PluginLog.Information("[AutoRenewal] Updated PF listings after member join");
+                }
+                catch (Exception ex)
+                {
+                    PluginLog.Error(ex, "[AutoRenewal] Failed to update PF listings after member join");
+                }
+            });
+        }
+        // Check if someone left
+        else if (newSize < previousSize)
+        {
+            PluginLog.Information($"[AutoRenewal] Party member left - executing restoration sequence");
+            ExecutePartyMemberLeftSequence();
+        }
     }
 
     // Reset the recruitment timer
@@ -168,8 +187,6 @@ public unsafe class AutoPartyFinder : IDalamudPlugin
     {
         _lastRecruitmentTime = DateTime.MinValue;
         _lastKnownPartySize = -1;
-        _partyDecreaseDetectedTime = DateTime.MinValue;
-        _pendingPartyRecovery = false;
         PluginLog.Information($"[AutoRenewal] Recruitment timer reset due to {reason}");
     }
 
@@ -209,13 +226,13 @@ public unsafe class AutoPartyFinder : IDalamudPlugin
         return null;
     }
 
-    // Execute restore party mask routine
-    private void ExecutePartyLeaverAdjustment()
+    // Execute restoration sequence when party member leaves
+    private void ExecutePartyMemberLeftSequence()
     {
-        PluginLog.Information("[AutoRenewal] Executing party leaver recovery sequence");
-        PluginLog.Information($"[AutoRenewal] Using {RecoveryStepDelayMs}ms delay between steps");
+        PluginLog.Information("[AutoRenewal] Executing party member left restoration sequence");
         _isRenewalInProgress = true;
 
+        // Step 1: Update Party Finder Listings
         _queueService.QueueAction(() =>
         {
             try
@@ -223,30 +240,22 @@ public unsafe class AutoPartyFinder : IDalamudPlugin
                 var agent = _partyFinderService.GetLookingForGroupAgent();
                 if (agent == IntPtr.Zero)
                 {
-                    PluginLog.Error("[AutoRenewal] LookingForGroup agent is null during recovery");
+                    PluginLog.Error("[Restoration] LookingForGroup agent is null");
                     _isRenewalInProgress = false;
                     return;
                 }
 
-                // Step 1: Disable OpenAddon
-                try
-                {
-                    PluginLog.Information("[Recovery] Step 1: Disabling OpenAddon");
-                    _partyFinderService.DisableOpenAddon();
-                }
-                catch (Exception ex)
-                {
-                    PluginLog.Error(ex, "[Recovery] Failed to disable OpenAddon, continuing anyway");
-                }
+                PluginLog.Information("[Restoration] Step 1: Updating PF listings");
+                _partyFinderService.UpdatePartyFinderListings(agent, 1);
             }
             catch (Exception ex)
             {
-                PluginLog.Error(ex, "[Recovery] Unexpected error in recovery sequence step 1");
+                PluginLog.Error(ex, "[Restoration] Failed to update PF listings");
                 _isRenewalInProgress = false;
             }
         });
 
-        // Step 2: Open Recruitment Window
+        // Step 2: Smart restore job masks
         _queueService.QueueAction(() =>
         {
             try
@@ -254,52 +263,22 @@ public unsafe class AutoPartyFinder : IDalamudPlugin
                 var agent = _partyFinderService.GetLookingForGroupAgent();
                 if (agent == IntPtr.Zero)
                 {
-                    PluginLog.Error("[Recovery] LookingForGroup agent is null during recovery");
+                    PluginLog.Error("[Restoration] LookingForGroup agent is null");
                     _isRenewalInProgress = false;
                     return;
                 }
 
-                try
-                {
-                    PluginLog.Information("[Recovery] Step 2: Opening recruitment window");
-                    _partyFinderService.OpenRecruitmentWindow(agent, 0);
-                    Marshal.WriteInt32(agent + 0x30F0, 1);
-                }
-                catch (Exception ex)
-                {
-                    PluginLog.Error(ex, "[Recovery] Failed to open recruitment window, continuing anyway");
-                }
+                PluginLog.Information("[Restoration] Step 2: Smart restoring job masks");
+                _partyFinderService.SmartRestoreJobMasks(agent);
             }
             catch (Exception ex)
             {
-                PluginLog.Error(ex, "[Recovery] Unexpected error in recovery sequence step 2");
-                _isRenewalInProgress = false;
-            }
-        }, RecoveryStepDelayMs * 1);
-
-        // Step 3: Enable OpenAddon
-        _queueService.QueueAction(() =>
-        {
-            try
-            {
-                try
-                {
-                    PluginLog.Information("[Recovery] Step 3: Re-enabling OpenAddon");
-                    _partyFinderService.EnableOpenAddon();
-                }
-                catch (Exception ex)
-                {
-                    PluginLog.Error(ex, "[Recovery] Failed to enable OpenAddon, continuing anyway");
-                }
-            }
-            catch (Exception ex)
-            {
-                PluginLog.Error(ex, "[Recovery] Unexpected error in recovery sequence step 3");
+                PluginLog.Error(ex, "[Restoration] Failed to restore job masks");
                 _isRenewalInProgress = false;
             }
         }, RecoveryStepDelayMs * 2);
 
-        // Step 4: Smart restore job masks
+        // Step 3: Leave duty
         _queueService.QueueAction(() =>
         {
             try
@@ -307,29 +286,22 @@ public unsafe class AutoPartyFinder : IDalamudPlugin
                 var agent = _partyFinderService.GetLookingForGroupAgent();
                 if (agent == IntPtr.Zero)
                 {
-                    PluginLog.Error("[Recovery] LookingForGroup agent is null during recovery");
+                    PluginLog.Error("[Restoration] LookingForGroup agent is null");
                     _isRenewalInProgress = false;
                     return;
                 }
 
-                try
-                {
-                    PluginLog.Information("[Recovery] Step 4: Smart restoring job masks");
-                    _partyFinderService.SmartRestoreJobMasks(agent);
-                }
-                catch (Exception ex)
-                {
-                    PluginLog.Error(ex, "[Recovery] Failed to restore job masks, continuing anyway");
-                }
+                PluginLog.Information("[Restoration] Step 3: Leaving duty");
+                _partyFinderService.LeaveDuty(agent);
             }
             catch (Exception ex)
             {
-                PluginLog.Error(ex, "[Recovery] Unexpected error in recovery sequence step 4");
+                PluginLog.Error(ex, "[Restoration] Failed to leave duty");
                 _isRenewalInProgress = false;
             }
-        }, RecoveryStepDelayMs * 3);
+        }, RecoveryStepDelayMs * 5);
 
-        // Step 5: Leave duty
+        // Step 4: Start recruiting
         _queueService.QueueAction(() =>
         {
             try
@@ -337,79 +309,27 @@ public unsafe class AutoPartyFinder : IDalamudPlugin
                 var agent = _partyFinderService.GetLookingForGroupAgent();
                 if (agent == IntPtr.Zero)
                 {
-                    PluginLog.Error("[Recovery] LookingForGroup agent is null during recovery");
+                    PluginLog.Error("[Restoration] LookingForGroup agent is null");
                     _isRenewalInProgress = false;
                     return;
                 }
 
-                try
-                {
-                    PluginLog.Information("[Recovery] Step 5: Leaving duty");
-                    _partyFinderService.LeaveDuty(agent);
-                }
-                catch (Exception ex)
-                {
-                    PluginLog.Error(ex, "[Recovery] Failed to leave duty, continuing anyway");
-                }
+                PluginLog.Information("[Restoration] Step 4: Starting recruitment");
+                var result = _partyFinderService.StartRecruiting(agent);
+                PluginLog.Information($"[Restoration] StartRecruiting returned: {result}");
+
+                _isRenewalInProgress = false;
+                PluginLog.Information("[Restoration] Party member left restoration sequence completed");
             }
             catch (Exception ex)
             {
-                PluginLog.Error(ex, "[Recovery] Unexpected error in recovery sequence step 5");
+                PluginLog.Error(ex, "[Restoration] Failed to start recruiting");
                 _isRenewalInProgress = false;
             }
         }, RecoveryStepDelayMs * 10);
-
-        // Step 6: Start recruiting
-        _queueService.QueueAction(() =>
-        {
-            try
-            {
-                var agent = _partyFinderService.GetLookingForGroupAgent();
-                if (agent == IntPtr.Zero)
-                {
-                    PluginLog.Error("[Recovery] LookingForGroup agent is null when trying to start recruiting");
-                    _isRenewalInProgress = false;
-                    return;
-                }
-
-                PluginLog.Information("[Recovery] Step 6: Starting recruitment");
-                var result = _partyFinderService.StartRecruiting(agent);
-                PluginLog.Information($"[Recovery] StartRecruiting returned: {result}");
-            }
-            catch (Exception ex)
-            {
-                PluginLog.Error(ex, "[Recovery] Failed to start recruiting");
-                _isRenewalInProgress = false;
-            }
-        }, RecoveryStepDelayMs * 20);
-
-        // Step 7: Cleanup
-        _queueService.QueueAction(() =>
-        {
-            try
-            {
-                var agent = _partyFinderService.GetLookingForGroupAgent();
-                if (agent == IntPtr.Zero)
-                {
-                    PluginLog.Error("[Recovery] LookingForGroup agent is null when trying to cleanup");
-                    _isRenewalInProgress = false;
-                    return;
-                }
-
-                // Clear fake addon handle
-                Marshal.WriteInt32(agent + 0x30F0, 0);
-
-                _isRenewalInProgress = false;
-                PluginLog.Information("[Recovery] Party decrease recovery sequence completed");
-            }
-            catch (Exception ex)
-            {
-                PluginLog.Error(ex, "[Recovery] Failed to cleanup");
-                _isRenewalInProgress = false;
-            }
-        }, RecoveryStepDelayMs * 30);
     }
 
+    // Manual recovery function for debug purposes
     public void ManualExecutePartyDecreaseRecovery()
     {
         if (_isRenewalInProgress)
@@ -419,7 +339,7 @@ public unsafe class AutoPartyFinder : IDalamudPlugin
         }
 
         PluginLog.Information("[ManualRecovery] Manual party decrease recovery triggered");
-        ExecutePartyLeaverAdjustment();
+        ExecutePartyMemberLeftSequence();
     }
 
     private void OnDraw()
@@ -480,25 +400,6 @@ public unsafe class AutoPartyFinder : IDalamudPlugin
         // Check if we have a valid recruitment time
         if (_lastRecruitmentTime == DateTime.MinValue)
             return;
-
-        // Check if we have a pending recovery and debounce time has passed
-        if (_pendingPartyRecovery && _partyDecreaseDetectedTime != DateTime.MinValue)
-        {
-            var timeSinceDecrease = now - _partyDecreaseDetectedTime;
-            if (timeSinceDecrease.TotalSeconds >= PARTY_DECREASE_DEBOUNCE_SECONDS)
-            {
-                PluginLog.Information($"[AutoRenewal] Debounce period passed, executing recovery");
-                _pendingPartyRecovery = false;
-                _partyDecreaseDetectedTime = DateTime.MinValue;
-                ExecutePartyLeaverAdjustment();
-                // Don't continue with normal renewal check
-                return;
-            }
-            else
-            {
-                PluginLog.Debug($"[AutoRenewal] Waiting for debounce: {PARTY_DECREASE_DEBOUNCE_SECONDS - timeSinceDecrease.TotalSeconds:F1} seconds remaining");
-            }
-        }
 
         // Check if it's time to renew
         var timeSinceRecruitment = now - _lastRecruitmentTime;

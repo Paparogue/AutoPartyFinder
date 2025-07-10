@@ -40,7 +40,7 @@ public class DebugUI
         ImGui.TextColored(new Vector4(0.7f, 0.7f, 1, 1), "Individual Function Tests:");
         ImGui.Spacing();
 
-        ImGui.Text("OpenAddon Patch Controls:");
+        ImGui.Text("OpenAddon Patch Controls (Debug Only):");
         if (ImGui.Button("Disable OpenAddon", new Vector2(140, 30)))
         {
             _testFunctions.TestDisableOpenAddon();
@@ -52,19 +52,19 @@ public class DebugUI
         }
         if (ImGui.IsItemHovered())
         {
-            ImGui.SetTooltip("Disable/Enable OpenAddon function");
+            ImGui.SetTooltip("Debug-only functions for OpenAddon patching");
         }
 
         ImGui.Spacing();
 
-        ImGui.Text("Window Operations:");
+        ImGui.Text("Window Operations (Debug Only):");
         if (ImGui.Button("Open Recruitment Window", new Vector2(200, 30)))
         {
             _testFunctions.TestOpenRecruitmentWindow();
         }
         if (ImGui.IsItemHovered())
         {
-            ImGui.SetTooltip("Opens the Party Finder recruitment window");
+            ImGui.SetTooltip("Debug-only function to open recruitment window");
         }
 
         ImGui.Spacing();
@@ -190,7 +190,7 @@ public class DebugUI
         ImGui.PushStyleColor(ImGuiCol.ButtonHovered, new Vector4(0.6f, 0.3f, 0.9f, 1));
         ImGui.PushStyleColor(ImGuiCol.ButtonActive, new Vector4(0.4f, 0.1f, 0.7f, 1));
 
-        if (ImGui.Button("Execute Party Decrease Recovery", new Vector2(400, 35)))
+        if (ImGui.Button("Execute Party Member Left Recovery", new Vector2(400, 35)))
         {
             _plugin.ManualExecutePartyDecreaseRecovery();
         }
@@ -199,13 +199,11 @@ public class DebugUI
 
         if (ImGui.IsItemHovered())
         {
-            ImGui.SetTooltip("Manually trigger the party decrease recovery sequence\nThis will:\n" +
-                            "1. Disable OpenAddon\n" +
-                            "2. Open recruitment window\n" +
-                            "3. Re-enable OpenAddon\n" +
-                            "4. Restore job masks\n" +
-                            "5. Leave duty\n" +
-                            "6. Start recruiting");
+            ImGui.SetTooltip("Manually trigger the party member left recovery sequence\nThis will:\n" +
+                            "1. Update PF listings\n" +
+                            "2. Restore job masks\n" +
+                            "3. Leave duty\n" +
+                            "4. Start recruiting");
         }
     }
 }

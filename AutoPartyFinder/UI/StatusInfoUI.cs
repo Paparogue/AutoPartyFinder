@@ -48,8 +48,6 @@ public class StatusInfoUI
         ImGui.Separator();
 
         var lastKnownSize = _plugin.LastKnownPartySize;
-        var pendingRecovery = _plugin.PendingPartyRecovery;
-        var decreaseDetectedTime = _plugin.PartyDecreaseDetectedTime;
         var currentSize = _plugin.GetPartyFinderService().GetCurrentPartySize();
 
         if (lastKnownSize == -1)
@@ -61,18 +59,13 @@ public class StatusInfoUI
             ImGui.Text($"Current party size: {currentSize}");
             ImGui.Text($"Last known size: {lastKnownSize}");
 
-            if (pendingRecovery && decreaseDetectedTime != DateTime.MinValue)
+            if (currentSize < lastKnownSize)
             {
-                var timeSinceDecrease = DateTime.UtcNow - decreaseDetectedTime;
-                var timeRemaining = Math.Max(0, 10 - timeSinceDecrease.TotalSeconds);
-
-                ImGui.TextColored(new Vector4(1, 1, 0, 1), "Party size decreased - Recovery pending");
-                ImGui.ProgressBar((float)(timeSinceDecrease.TotalSeconds / 10), new Vector2(400, 20),
-                    $"Recovery in {timeRemaining:F1} seconds");
+                ImGui.TextColored(new Vector4(1, 0.5f, 0, 1), "Party member recently left - restoration in progress");
             }
-            else if (currentSize < lastKnownSize)
+            else if (currentSize > lastKnownSize)
             {
-                ImGui.TextColored(new Vector4(1, 0.5f, 0, 1), "Party size just decreased!");
+                ImGui.TextColored(new Vector4(0, 1, 0.5f, 1), "Party member recently joined");
             }
             else
             {

@@ -46,14 +46,23 @@ public unsafe class PartyFinderService
     private byte[]? _originalOpenAddonBytes;
     private bool _isOpenAddonPatchApplied = false;
 
-    // Backup data for slots and job masks
+    // Backup data for slots and job masks - this is our ORIGINAL configuration
     public struct SlotBackupInfo
     {
         public int TotalSlots;
         public List<PartyFinderSlots.SlotInfo> SlotInfos;
         public DateTime BackupTime;
     }
-    private SlotBackupInfo? _lastBackupData;
+    private SlotBackupInfo? _originalBackupData;
+
+    // Track current party members
+    public struct PartyMemberInfo
+    {
+        public ulong ContentId;
+        public byte JobId;
+        public int SlotIndex;
+    }
+    private Dictionary<ulong, PartyMemberInfo> _currentPartyMembers = new();
 
     public PartyFinderService(ISigScanner sigScanner, IPluginLog pluginLog, IGameInteropProvider gameInteropProvider, AutoPartyFinder plugin)
     {
@@ -295,8 +304,8 @@ public unsafe class PartyFinderService
             // Only backup data if this was initiated by the game (user clicking)
             if (result == 0 && isGameInitiated)
             {
-                _pluginLog.Information("[HOOK] StartRecruiting succeeded from game interaction - backing up data");
-                BackupSlotData(agent);
+                _pluginLog.Information("[HOOK] StartRecruiting succeeded from game interaction - backing up ORIGINAL data");
+                BackupOriginalSlotData(agent);
             }
             else if (result == 0 && !isGameInitiated)
             {
@@ -362,8 +371,8 @@ public unsafe class PartyFinderService
         }
     }
 
-    // Backup slot data when recruitment succeeds
-    private void BackupSlotData(IntPtr agent)
+    // Backup original slot data when recruitment starts
+    private void BackupOriginalSlotData(IntPtr agent)
     {
         try
         {
@@ -375,10 +384,24 @@ public unsafe class PartyFinderService
                 BackupTime = DateTime.UtcNow
             };
 
-            _lastBackupData = backupData;
+            _originalBackupData = backupData;
+            _currentPartyMembers.Clear();
 
-            _pluginLog.Information($"[BACKUP] Backed up slot data from game interaction at {backupData.BackupTime}");
+            _pluginLog.Information($"[BACKUP] Backed up ORIGINAL slot data at {backupData.BackupTime}");
             _pluginLog.Information($"[BACKUP] Total slots: {backupData.TotalSlots}");
+
+            // Track initial party members
+            foreach (var slot in backupData.SlotInfos.Where(s => s.IsTaken))
+            {
+                _currentPartyMembers[slot.ContentId] = new PartyMemberInfo
+                {
+                    ContentId = slot.ContentId,
+                    JobId = slot.JobId,
+                    SlotIndex = slot.Index
+                };
+
+                _pluginLog.Information($"[BACKUP] Initial member - Slot {slot.Index + 1}: Job {slot.JobId}, Content ID: 0x{slot.ContentId:X}");
+            }
 
             foreach (var slot in backupData.SlotInfos)
             {
@@ -391,14 +414,14 @@ public unsafe class PartyFinderService
         }
         catch (Exception ex)
         {
-            _pluginLog.Error(ex, "[BACKUP] Failed to backup slot data");
+            _pluginLog.Error(ex, "[BACKUP] Failed to backup original slot data");
         }
     }
 
-    // Get the last backup data
+    // Get the original backup data
     public SlotBackupInfo? GetLastBackupData()
     {
-        return _lastBackupData;
+        return _originalBackupData;
     }
 
     // Set allowed jobs mask for a specific slot
@@ -561,17 +584,17 @@ public unsafe class PartyFinderService
             var slots = new PartyFinderSlots(agent, _pluginLog);
             var currentSlots = slots.GetAllSlots();
 
-            // Determine whether to use overrides or backup
+            // Determine whether to use overrides or original backup
             bool useOverrides = _plugin.UseJobMaskOverride && _plugin.PluginConfig.SlotJobMaskOverrides.Count > 0;
 
-            _pluginLog.Information($"[SmartRestore] Using {(useOverrides ? "OVERRIDE" : "BACKUP")} masks for ALL slots");
+            _pluginLog.Information($"[SmartRestore] Using {(useOverrides ? "OVERRIDE" : "ORIGINAL BACKUP")} masks for restoration");
 
             var originalMasks = new List<(int Index, ulong Mask)>();
 
             if (useOverrides)
             {
                 // Use ONLY override masks
-                _pluginLog.Information("[SmartRestore] Override mode - will only use configured override masks");
+                _pluginLog.Information("[SmartRestore] Override mode - using configured override masks");
 
                 foreach (var kvp in _plugin.PluginConfig.SlotJobMaskOverrides)
                 {
@@ -590,29 +613,29 @@ public unsafe class PartyFinderService
             }
             else
             {
-                // Use ONLY backup masks
+                // Use ONLY original backup masks
                 var backupData = GetLastBackupData();
 
                 if (!backupData.HasValue)
                 {
-                    _pluginLog.Warning("[SmartRestore] No backup data available");
+                    _pluginLog.Warning("[SmartRestore] No original backup data available");
                     return;
                 }
 
-                _pluginLog.Information("[SmartRestore] Backup mode - will only use masks from last recruitment");
+                _pluginLog.Information("[SmartRestore] Backup mode - using masks from recruitment start");
 
                 foreach (var backupSlot in backupData.Value.SlotInfos)
                 {
                     if (backupSlot.Index < currentSlots.Count && backupSlot.AllowedJobsMask != 0)
                     {
                         originalMasks.Add((backupSlot.Index, backupSlot.AllowedJobsMask));
-                        _pluginLog.Information($"[SmartRestore] Using backup mask for slot {backupSlot.Index + 1}: 0x{backupSlot.AllowedJobsMask:X}");
+                        _pluginLog.Information($"[SmartRestore] Using original mask for slot {backupSlot.Index + 1}: 0x{backupSlot.AllowedJobsMask:X}");
                     }
                 }
 
                 if (originalMasks.Count == 0)
                 {
-                    _pluginLog.Warning("[SmartRestore] No valid backup masks found");
+                    _pluginLog.Warning("[SmartRestore] No valid original masks found");
                     return;
                 }
             }
@@ -634,7 +657,7 @@ public unsafe class PartyFinderService
                 }
             }
 
-            _pluginLog.Information($"[SmartRestore] Restoration complete - applied {restorationMap.Count} masks in {(useOverrides ? "OVERRIDE" : "BACKUP")} mode");
+            _pluginLog.Information($"[SmartRestore] Restoration complete - applied {restorationMap.Count} masks in {(useOverrides ? "OVERRIDE" : "ORIGINAL BACKUP")} mode");
         }
         catch (Exception ex)
         {
@@ -656,7 +679,21 @@ public unsafe class PartyFinderService
         {
             _pluginLog.Information($"[SmartRestore] Processing occupied slot {occupiedSlot.Index + 1} with job ID {occupiedSlot.JobId}");
 
-            // Find the best matching original mask for this occupied slot
+            // Check if we have tracking info for this player
+            var memberInfo = _currentPartyMembers.Values.FirstOrDefault(m => m.ContentId == occupiedSlot.ContentId);
+            if (memberInfo.ContentId != 0)
+            {
+                // We know this player's original slot
+                var originalMask = originalMasks.FirstOrDefault(m => m.Index == memberInfo.SlotIndex);
+                if (originalMask.Mask != 0)
+                {
+                    usedOriginalIndices.Add(originalMask.Index);
+                    _pluginLog.Information($"[SmartRestore] Player in slot {occupiedSlot.Index + 1} originally was in slot {memberInfo.SlotIndex + 1}");
+                    continue;
+                }
+            }
+
+            // Fallback to best match if we don't have tracking
             var bestMatch = FindBestMatchingOriginalMask(occupiedSlot.JobId, originalMasks, usedOriginalIndices);
             if (bestMatch != null)
             {
@@ -716,7 +753,7 @@ public unsafe class PartyFinderService
         return null;
     }
 
-    // OpenAddon patching methods
+    // OpenAddon patching methods (kept for debug purposes)
     public void DisableOpenAddon()
     {
         if (_openAddonPatchAddress == IntPtr.Zero || _originalOpenAddonBytes == null || _isOpenAddonPatchApplied)
