@@ -236,8 +236,8 @@ public class TestFunctions
         });
     }
 
-    // New CrossRealm test functions
-    public void TestCrossRealmFunc1()
+    // New UpdatePartyFinderListings test function
+    public void TestUpdatePartyFinderListings(byte preserveSelection)
     {
         _queueService.QueueAction(() =>
         {
@@ -250,47 +250,13 @@ public class TestFunctions
                     return;
                 }
 
-                var crossRealmProxy = _partyFinderService.GetCrossRealmProxy();
-                _pluginLog.Information($"CrossRealmProxy at 0x{crossRealmProxy.ToInt64():X}");
-                _pluginLog.Information($"Agent at 0x{agent.ToInt64():X}");
-                _pluginLog.Information($"Data pointer will be at 0x{(agent + 0x2318).ToInt64():X}");
-
-                _pluginLog.Information("Calling CrossRealmFunc1");
-                _partyFinderService.CallCrossRealmFunc1(agent);
-                _pluginLog.Information("CrossRealmFunc1 called successfully");
+                _pluginLog.Information($"Calling UpdatePartyFinderListings with agent at 0x{agent.ToInt64():X} and preserveSelection={preserveSelection}");
+                _partyFinderService.UpdatePartyFinderListings(agent, preserveSelection);
+                _pluginLog.Information("UpdatePartyFinderListings called successfully");
             }
             catch (Exception ex)
             {
-                _pluginLog.Error(ex, "Failed to call CrossRealmFunc1");
-            }
-        });
-    }
-
-    public void TestCrossRealmFunc2()
-    {
-        _queueService.QueueAction(() =>
-        {
-            try
-            {
-                var agent = _partyFinderService.GetLookingForGroupAgent();
-                if (agent == IntPtr.Zero)
-                {
-                    _pluginLog.Error("LookingForGroup agent is null");
-                    return;
-                }
-
-                var crossRealmProxy = _partyFinderService.GetCrossRealmProxy();
-                _pluginLog.Information($"CrossRealmProxy at 0x{crossRealmProxy.ToInt64():X}");
-                _pluginLog.Information($"Agent at 0x{agent.ToInt64():X}");
-                _pluginLog.Information($"Data pointer will be at 0x{(agent + 0x2710).ToInt64():X}");
-
-                _pluginLog.Information("Calling CrossRealmFunc2");
-                _partyFinderService.CallCrossRealmFunc2(agent);
-                _pluginLog.Information("CrossRealmFunc2 called successfully");
-            }
-            catch (Exception ex)
-            {
-                _pluginLog.Error(ex, "Failed to call CrossRealmFunc2");
+                _pluginLog.Error(ex, "Failed to call UpdatePartyFinderListings");
             }
         });
     }

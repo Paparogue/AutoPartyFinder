@@ -10,6 +10,9 @@ public class DebugUI
     private readonly AutoPartyFinderConfig _config;
     private readonly TestFunctions _testFunctions;
 
+    // State for UpdatePartyFinderListings
+    private bool _preserveSelection = false;
+
     public DebugUI(AutoPartyFinder plugin, AutoPartyFinderConfig config)
     {
         _plugin = plugin;
@@ -139,23 +142,22 @@ public class DebugUI
 
         ImGui.Spacing();
 
-        ImGui.Text("CrossRealm Functions:");
-        if (ImGui.Button("Test CrossRealm Func 1", new Vector2(200, 30)))
-        {
-            _testFunctions.TestCrossRealmFunc1();
-        }
+        ImGui.Text("Update Party Finder Listings:");
+
+        // Checkbox for preserveSelection parameter
+        ImGui.Checkbox("Preserve Selection", ref _preserveSelection);
         if (ImGui.IsItemHovered())
         {
-            ImGui.SetTooltip("Calls CrossRealmFunc1(crossRealmProxy, agentPtr + 0x2318)");
+            ImGui.SetTooltip("When checked, preserveSelection will be 1, otherwise 0");
         }
 
-        if (ImGui.Button("Test CrossRealm Func 2", new Vector2(200, 30)))
+        if (ImGui.Button("Update PF Listings", new Vector2(200, 30)))
         {
-            _testFunctions.TestCrossRealmFunc2();
+            _testFunctions.TestUpdatePartyFinderListings((byte)(_preserveSelection ? 1 : 0));
         }
         if (ImGui.IsItemHovered())
         {
-            ImGui.SetTooltip("Calls CrossRealmFunc2(crossRealmProxy, agentPtr + 0x2710)");
+            ImGui.SetTooltip($"Calls UpdatePartyFinderListings(agent, 1, {(_preserveSelection ? 1 : 0)})\nUpdates party finder listings with new configuration");
         }
     }
 

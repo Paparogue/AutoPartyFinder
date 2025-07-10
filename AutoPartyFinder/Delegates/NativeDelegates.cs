@@ -11,5 +11,4 @@ public delegate byte IsLocalPlayerInPartyDelegate();
 public delegate ulong GetActiveRecruiterContentIdDelegate(IntPtr agent);
 public delegate byte CrossRealmGetPartyMemberCountDelegate();
 public delegate void PartyMemberChangeDelegate(IntPtr a1, IntPtr a2, IntPtr a3, IntPtr a4);
-public delegate void CrossRealmFunc1Delegate(IntPtr crossRealmProxy, IntPtr data);
-public delegate void CrossRealmFunc2Delegate(IntPtr crossRealmProxy, IntPtr data);
+public delegate void UpdatePartyFinderListingsDelegate(IntPtr agent, byte unknown, byte preserveSelection);
