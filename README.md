@@ -1,10 +1,10 @@
+## ⚠️ ALPHA VERSION - TESTING PHASE
+This plugin is currently in early development. Expect bugs, crashes, and unexpected behavior. Use at your own risk and please report any issues.
+
 # AutoPartyFinder
 ![AutoPartyFinder Icon](https://raw.github.com/Paparogue/AutoPartyFinder/99fbcb558c4938d80dd29b177fed287c2aa7ef4a/apf.png)
 
 Automates Party Finder recruitment in FFXIV by preventing listing expiration and recovering from party changes.
-
-## ⚠️ ALPHA VERSION - TESTING PHASE
-This plugin is currently in early development. Expect bugs, crashes, and unexpected behavior. Use at your own risk and please report any issues.
 
 ## What It Does
 
