@@ -55,7 +55,6 @@ Keeps your Party Finder listing active indefinitely by refreshing it every 55 mi
 
 ### Party Recovery
 When someone leaves your party:
-- Waits 10 seconds (to avoid multiple triggers)
 - Automatically restores the job restrictions for empty slots
 - Continues recruiting without manual intervention
 
