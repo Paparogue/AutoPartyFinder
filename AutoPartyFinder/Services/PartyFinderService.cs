@@ -72,7 +72,7 @@ public unsafe class PartyFinderService
         // Hook StartRecruiting
         try
         {
-            var startRecruitingPtr = sigScanner.ScanText("E8 ?? ?? ?? ?? 48 8B CB 44 89 A3");
+            var startRecruitingPtr = sigScanner.ScanText("E8 ?? ?? ?? ?? 48 8B CD E8 ?? ?? ?? ?? 33 DB");
             _pluginLog.Information($"StartRecruiting function found at 0x{startRecruitingPtr.ToInt64():X}");
 
             _startRecruitingHook = _gameInteropProvider.HookFromAddress<StartRecruitingDelegate>(
