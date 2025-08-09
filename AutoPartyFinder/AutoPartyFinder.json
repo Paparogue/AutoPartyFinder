@@ -7,7 +7,7 @@
   "ApplicableVersion": "any",
   "RepoUrl": "https://github.com/Paparogue/AutoPartyFinder",
   "IconUrl": "https://raw.github.com/Paparogue/AutoPartyFinder/5d6e58468c70302c1c7df19a2d35a926b27d90b4/apf.png",
-  "DalamudApiLevel": 12,
+  "DalamudApiLevel": 13,
   "Tags": [
     "UI",
     "Utility"

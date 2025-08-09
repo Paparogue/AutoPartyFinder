@@ -20,38 +20,6 @@ public class TestFunctions
         _pluginLog = pluginLog;
     }
 
-    public void TestDisableOpenAddon()
-    {
-        _queueService.QueueAction(() =>
-        {
-            try
-            {
-                _pluginLog.Information("Testing DisableOpenAddon");
-                _partyFinderService.DisableOpenAddon();
-            }
-            catch (Exception ex)
-            {
-                _pluginLog.Error(ex, "Failed to disable OpenAddon");
-            }
-        });
-    }
-
-    public void TestEnableOpenAddon()
-    {
-        _queueService.QueueAction(() =>
-        {
-            try
-            {
-                _pluginLog.Information("Testing EnableOpenAddon");
-                _partyFinderService.EnableOpenAddon();
-            }
-            catch (Exception ex)
-            {
-                _pluginLog.Error(ex, "Failed to enable OpenAddon");
-            }
-        });
-    }
-
     public void TestOpenRecruitmentWindow()
     {
         _queueService.QueueAction(() =>
@@ -120,30 +88,6 @@ public class TestFunctions
             catch (Exception ex)
             {
                 _pluginLog.Error(ex, "Failed to call LeaveDuty");
-            }
-        });
-    }
-
-    public void TestRefreshListings()
-    {
-        _queueService.QueueAction(() =>
-        {
-            try
-            {
-                var agent = _partyFinderService.GetLookingForGroupAgent();
-                if (agent == IntPtr.Zero)
-                {
-                    _pluginLog.Error("LookingForGroup agent is null");
-                    return;
-                }
-
-                _pluginLog.Information($"Calling RefreshListings with agent at 0x{agent.ToInt64():X} and command ID 0xE");
-                var result = _partyFinderService.RefreshListings(agent, 0xE);
-                _pluginLog.Information($"RefreshListings returned: {result}");
-            }
-            catch (Exception ex)
-            {
-                _pluginLog.Error(ex, "Failed to call RefreshListings");
             }
         });
     }

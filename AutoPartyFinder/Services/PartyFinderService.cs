@@ -35,16 +35,11 @@ public unsafe class PartyFinderService
 
     private OpenRecruitmentWindowDelegate? _openRecruitmentWindow;
     private LeaveDutyDelegate? _leaveDuty;
-    private RefreshListingsDelegate? _refreshListings;
     private IsLocalPlayerPartyLeaderDelegate? _isLocalPlayerPartyLeader;
     private IsLocalPlayerInPartyDelegate? _isLocalPlayerInParty;
     private GetActiveRecruiterContentIdDelegate? _getActiveRecruiterContentId;
     private CrossRealmGetPartyMemberCountDelegate? _getCrossRealmPartyMemberCount;
     private UpdatePartyFinderListingsDelegate? _updatePartyFinderListings;
-
-    private IntPtr _openAddonPatchAddress = IntPtr.Zero;
-    private byte[]? _originalOpenAddonBytes;
-    private bool _isOpenAddonPatchApplied = false;
 
     // Backup data for slots and job masks - this is our ORIGINAL configuration
     public struct SlotBackupInfo
@@ -136,37 +131,6 @@ public unsafe class PartyFinderService
 
         try
         {
-            _openAddonPatchAddress = sigScanner.ScanText("83 BE ?? ?? ?? ?? ?? 48 8B 01 75");
-            if (_openAddonPatchAddress != IntPtr.Zero)
-            {
-                _pluginLog.Information($"Found OpenAddon patch signature at 0x{_openAddonPatchAddress.ToInt64():X}");
-                _originalOpenAddonBytes = new byte[7];
-                Marshal.Copy(_openAddonPatchAddress, _originalOpenAddonBytes, 0, 7);
-                _pluginLog.Debug($"Original OpenAddon bytes: {BitConverter.ToString(_originalOpenAddonBytes)}");
-            }
-            else
-            {
-                _pluginLog.Error("Failed to find OpenAddon patch signature");
-            }
-        }
-        catch (Exception ex)
-        {
-            _pluginLog.Error(ex, "Error scanning for OpenAddon patch signature");
-        }
-
-        try
-        {
-            var refreshListingsPtr = sigScanner.ScanText("E8 ?? ?? ?? ?? 0F B6 D8 E9 ?? ?? ?? ?? 45 8B C2 48 8B D6 48 8B CF E8 ?? ?? ?? ?? 0F B6 D8 E9 ?? ?? ?? ?? 45 8B C2 48 8B D6 48 8B CF E8 ?? ?? ?? ?? 0F B6 D8 E9 ?? ?? ?? ?? 45 8B C2");
-            _refreshListings = Marshal.GetDelegateForFunctionPointer<RefreshListingsDelegate>(refreshListingsPtr);
-            _pluginLog.Information($"RefreshListings function found at 0x{refreshListingsPtr.ToInt64():X}");
-        }
-        catch (Exception ex)
-        {
-            _pluginLog.Error(ex, "Failed to find RefreshListings signature");
-        }
-
-        try
-        {
             var isLocalPlayerPartyLeaderPtr = sigScanner.ScanText("E8 ?? ?? ?? ?? 84 C0 75 ?? 33 D2 48 8D 0D ?? ?? ?? ?? E8 ?? ?? ?? ?? 48 8B C8");
             _isLocalPlayerPartyLeader = Marshal.GetDelegateForFunctionPointer<IsLocalPlayerPartyLeaderDelegate>(isLocalPlayerPartyLeaderPtr);
             _pluginLog.Information($"IsLocalPlayerPartyLeader function found at 0x{isLocalPlayerPartyLeaderPtr.ToInt64():X}");
@@ -189,7 +153,7 @@ public unsafe class PartyFinderService
 
         try
         {
-            var getActiveRecruiterContentIdPtr = sigScanner.ScanText("E8 ?? ?? ?? ?? 48 8B D8 48 85 C0 74 ?? 48 8B 4E ?? 48 8B 11 FF 92 ?? ?? ?? ?? 48 8B C8 E8 ?? ?? ?? ?? 48 3B D8");
+            var getActiveRecruiterContentIdPtr = sigScanner.ScanText("E8 ?? ?? ?? ?? 48 85 C0 75 ?? F6 83");
             _getActiveRecruiterContentId = Marshal.GetDelegateForFunctionPointer<GetActiveRecruiterContentIdDelegate>(getActiveRecruiterContentIdPtr);
             _pluginLog.Information($"GetActiveRecruiterContentId function found at 0x{getActiveRecruiterContentIdPtr.ToInt64():X}");
         }
@@ -209,7 +173,6 @@ public unsafe class PartyFinderService
             _pluginLog.Error(ex, "Failed to find InfoProxyCrossRealm_GetPartyMemberCount signature");
         }
 
-        // New UpdatePartyFinderListings function
         try
         {
             var updatePartyFinderListingsPtr = sigScanner.ScanText("E8 ?? ?? ?? ?? EB ?? 8B 9E ?? ?? ?? ?? 48 8D 8D");
@@ -222,7 +185,6 @@ public unsafe class PartyFinderService
         }
     }
 
-    // Get CrossRealm proxy
     public IntPtr GetCrossRealmProxy()
     {
         var framework = Framework.Instance();
@@ -492,27 +454,6 @@ public unsafe class PartyFinderService
         _leaveDuty(pointerAt1C, 0);
     }
 
-    public long RefreshListings(IntPtr agent, int commandId)
-    {
-        if (_refreshListings == null)
-            throw new InvalidOperationException("RefreshListings function pointer is null");
-
-        // Create AtkValue structure with command ID
-        var atkValue = AtkValue.CreateLong(commandId);
-
-        // Allocate memory for the AtkValue
-        IntPtr atkValuePtr = Marshal.AllocHGlobal(Marshal.SizeOf<AtkValue>());
-        try
-        {
-            Marshal.StructureToPtr(atkValue, atkValuePtr, false);
-            return _refreshListings(agent, atkValuePtr);
-        }
-        finally
-        {
-            Marshal.FreeHGlobal(atkValuePtr);
-        }
-    }
-
     public bool IsLocalPlayerPartyLeader()
     {
         if (_isLocalPlayerPartyLeader == null)
@@ -753,50 +694,6 @@ public unsafe class PartyFinderService
         return null;
     }
 
-    // OpenAddon patching methods (kept for debug purposes)
-    public void DisableOpenAddon()
-    {
-        if (_openAddonPatchAddress == IntPtr.Zero || _originalOpenAddonBytes == null || _isOpenAddonPatchApplied)
-        {
-            _pluginLog.Warning("Cannot apply OpenAddon patch: address not found, original bytes not saved, or patch already applied");
-            return;
-        }
-
-        try
-        {
-            byte[] jumpPatch = new byte[] { 0xE9, 0x8D, 0x00, 0x00, 0x00, 0x90, 0x90 };
-            SafeMemory.WriteBytes(_openAddonPatchAddress, jumpPatch);
-            _pluginLog.Information($"Applied OpenAddon jump patch at 0x{_openAddonPatchAddress.ToInt64():X}");
-            _isOpenAddonPatchApplied = true;
-        }
-        catch (Exception ex)
-        {
-            _pluginLog.Error(ex, "Error applying OpenAddon patch");
-            throw;
-        }
-    }
-
-    public void EnableOpenAddon()
-    {
-        if (_openAddonPatchAddress == IntPtr.Zero || _originalOpenAddonBytes == null || !_isOpenAddonPatchApplied)
-        {
-            _pluginLog.Warning("Cannot restore OpenAddon patch: address not found, original bytes not saved, or patch not applied");
-            return;
-        }
-
-        try
-        {
-            SafeMemory.WriteBytes(_openAddonPatchAddress, _originalOpenAddonBytes);
-            _pluginLog.Information($"Restored original OpenAddon bytes at 0x{_openAddonPatchAddress.ToInt64():X}");
-            _isOpenAddonPatchApplied = false;
-        }
-        catch (Exception ex)
-        {
-            _pluginLog.Error(ex, "Error restoring OpenAddon original bytes");
-            throw;
-        }
-    }
-
     public void Dispose()
     {
         // Disable and dispose of the hooks
@@ -818,9 +715,5 @@ public unsafe class PartyFinderService
 
         // Clear the detour delegate reference
         _startRecruitingDetourDelegate = null;
-
-        // Restore patches if applied
-        if (_isOpenAddonPatchApplied)
-            EnableOpenAddon();
     }
 }

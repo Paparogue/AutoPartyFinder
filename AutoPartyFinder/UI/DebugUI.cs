@@ -1,6 +1,6 @@
 ﻿using System;
 using System.Numerics;
-using ImGuiNET;
+using Dalamud.Bindings.ImGui;
 
 namespace AutoPartyFinder.UI;
 
@@ -40,23 +40,6 @@ public class DebugUI
         ImGui.TextColored(new Vector4(0.7f, 0.7f, 1, 1), "Individual Function Tests:");
         ImGui.Spacing();
 
-        ImGui.Text("OpenAddon Patch Controls (Debug Only):");
-        if (ImGui.Button("Disable OpenAddon", new Vector2(140, 30)))
-        {
-            _testFunctions.TestDisableOpenAddon();
-        }
-        ImGui.SameLine();
-        if (ImGui.Button("Enable OpenAddon", new Vector2(140, 30)))
-        {
-            _testFunctions.TestEnableOpenAddon();
-        }
-        if (ImGui.IsItemHovered())
-        {
-            ImGui.SetTooltip("Debug-only functions for OpenAddon patching");
-        }
-
-        ImGui.Spacing();
-
         ImGui.Text("Window Operations (Debug Only):");
         if (ImGui.Button("Open Recruitment Window", new Vector2(200, 30)))
         {
@@ -88,17 +71,6 @@ public class DebugUI
         if (ImGui.IsItemHovered())
         {
             ImGui.SetTooltip("Leaves the current duty");
-        }
-
-        ImGui.Spacing();
-
-        if (ImGui.Button("Refresh Listings", new Vector2(200, 30)))
-        {
-            _testFunctions.TestRefreshListings();
-        }
-        if (ImGui.IsItemHovered())
-        {
-            ImGui.SetTooltip("Calls RefreshListings with command ID 0xE\nThis triggers recruitment-related actions");
         }
 
         ImGui.Spacing();
